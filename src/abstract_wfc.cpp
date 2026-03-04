@@ -40,3 +40,7 @@ AbstractWFC::AbstractWFC()
 :m_status(AbstractWFC::NOT_INIT_STATUS)
 {}
 
+int AbstractWFC::get_status() {
+    return m_status;
+}
+

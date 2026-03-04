@@ -51,5 +51,7 @@ public:
     virtual bool step() = 0;
     virtual bool run() = 0;
 
+    int get_status();
+
 };
 
