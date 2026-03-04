@@ -3,15 +3,14 @@
 #include <cstddef>
 #include <tuple>
 #include <vector>
+#include <utility>
 #include "utils.hpp"
 
-
+/*
+ * An interface for a 3D grid.like container that stores all elements in a contiguous array
+ */ 
 template<typename T>
 class AbstractArray3D {
-protected:
-    virtual inline std::size_t index(std::size_t x, std::size_t y, std::size_t z) const = 0;
-    virtual inline std::size_t wrapped_index(std::size_t x, std::size_t y, std::size_t z) const = 0;
-
 public:
     class iterator {
     private:
@@ -75,6 +74,9 @@ public:
         }
     };
 
+    virtual inline std::size_t index(std::size_t x, std::size_t y, std::size_t z) const = 0;
+    virtual inline std::size_t wrapped_index(std::size_t x, std::size_t y, std::size_t z) const = 0;
+
     virtual T& get(std::size_t x, std::size_t y, std::size_t z) = 0;
     virtual T& get_wrapped(int x, int y, int z) = 0;
     virtual T& get_linear(std::size_t i) = 0;
@@ -108,8 +110,6 @@ public:
 
 };
 
-template<typename T>
-class Array3DView;
 
 template<typename T>
 class Array3D : public AbstractArray3D<T> {
@@ -117,7 +117,7 @@ private:
     std::size_t width, height, depth;
     std::vector<T> data;
 
-protected:
+public:
     inline std::size_t index(std::size_t x, std::size_t y, std::size_t z) const override {
         return z * width * height + y * width + x;
     }
@@ -126,7 +126,6 @@ protected:
         return wrapped(0, depth, z) * width * height + wrapped(0, height, y) * width + wrapped(0, width, x);
     }
 
-public:
     Array3D(std::size_t w, std::size_t h, std::size_t d)
         : width(w), height(h), depth(d), data(w * h * d)
     {}
@@ -179,17 +178,18 @@ public:
     std::size_t get_depth() const override { return depth; }
     std::size_t size() const override { return data.size(); }
 
-    friend class Array3DView<T>;
-
 };
 
+/*
+ * A view into an AbstractArray3D that is an AbstractArray3D too. Allows to access subregions of the grid as if it was a standalone grid
+ */ 
 template<typename T>
 class Array3DView : public AbstractArray3D<T> {
 private:
-    Array3D<T>& source;
-    std::tuple<int, int, int> offset, length;
+    AbstractArray3D<T>& source;
+    std::tuple<std::size_t,std::size_t,std::size_t> offset, length;
 
-protected:
+public:
     inline std::size_t index(std::size_t x, std::size_t y, std::size_t z) const override {
         return source.index(std::get<0>(offset) + x, std::get<1>(offset) + y, std::get<2>(offset) + z);
     }
@@ -202,17 +202,30 @@ protected:
         );
     }
 
-public:
-    Array3DView(Array3D<T>& p_source, std::tuple<int,int,int> p_offset, std::tuple<int,int,int> p_length)
+    Array3DView(AbstractArray3D<T>& p_source, std::tuple<int,int,int> p_offset, std::tuple<int,int,int> p_length)
     :source(p_source), offset(p_offset), length(p_length)
-    {}
+    {
+        assert(
+            std::get<0>(offset) >= 0 &&
+            std::get<1>(offset) >= 0 &&
+            std::get<2>(offset) >= 0 &&
+            "First corner would stretch beyond the original array"
+        );
+
+        assert(
+            std::get<0>(offset) + std::get<0>(length) <= p_source.get_width() &&
+            std::get<1>(offset) + std::get<1>(length) <= p_source.get_height() &&
+            std::get<2>(offset) + std::get<2>(length) <= p_source.get_depth() &&
+            "Last corner would stretch beyond the original array"
+        );
+    }
 
     T& get(std::size_t x, std::size_t y, std::size_t z) override {
-        return source.data[index(x, y, z)];
+        return source.get_linear(index(x, y, z));
     }
 
     T& get_wrapped(int x, int y, int z) override {
-        return source.data[wrapped_index(x,y,z)];
+        return source.get_linear(wrapped_index(x,y,z));
     }
 
     T& get_linear(std::size_t i) override {
@@ -220,7 +233,7 @@ public:
     }
 
     const T& get(std::size_t x, std::size_t y, std::size_t z) const override {
-        return source.data[index(x, y, z)];
+        return source.get_linear(index(x, y, z));
     }
 
     const T& get_linear(std::size_t i) const override {
@@ -236,11 +249,11 @@ public:
 
 
     const T& wrapped_get(int x, int y, int z) const override {
-        return source.data[wrapped_index(x,y,z)];
+        return source.get_linear(wrapped_index(x,y,z));
     }
 
     void set(std::size_t x, std::size_t y, std::size_t z, const T& value) override {
-        source.data[index(x,y,z)] = value;
+        source.get_linear(index(x,y,z)) = value;
     }
 
     bool valid_coords(int x, int y, int z, bool wrap = false) const override {

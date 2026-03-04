@@ -15,7 +15,7 @@ enum Directions {
 
 using TileId = int;
 using CellState = std::unordered_map<TileId, bool>;
-using WaveState = Array3D<CellState>;
+using WaveState = AbstractArray3D<CellState>;
 using TileWeights = std::unordered_map<TileId, double>;
 using TileConstraints = std::unordered_map<TileId, std::vector<TileId>>;
 using WaveConstraints = std::unordered_map<Directions, TileConstraints>;

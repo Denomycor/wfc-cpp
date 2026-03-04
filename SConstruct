@@ -4,41 +4,48 @@ from SCons.Script import *
 # ---- Build mode ----
 mode = ARGUMENTS.get("mode", "release")
 
-# ---- Compiler flags ----
+# ---- Directories (separate per mode to avoid stale objects) ----
+SRC_DIR = "src"
+OBJ_DIR = os.path.join("obj", mode)
+BIN_DIR = os.path.join("bin", mode)
+
+# ---- Base compiler flags ----
 cxxflags = ["-std=c++17", "-Wall"]
 
 if mode == "debug":
-    cxxflags.append("-g")
-    # cxxflags.append("-fsanitize=address")
+    cxxflags += ["-g", "-O0", "-fsanitize=address"]
+    linkflags = ["-fsanitize=address"]
+else:
+    cxxflags += ["-O2"]
+    linkflags = []
 
+# ---- Environment ----
 env = Environment(
     CXX="g++",
     CXXFLAGS=cxxflags,
+    LINKFLAGS=linkflags,
     CPPPATH=["include"],
 )
 
 # Enable compilation database generation
 env.Tool("compilation_db")
 
-# ---- Directories ----
-SRC_DIR = "src"
-OBJ_DIR = "obj"
-BIN_DIR = "bin"
+# ---- Create directories ----
+env.Execute(Mkdir(BIN_DIR))
 
+# ---- Variant directory ----
 env.VariantDir(OBJ_DIR, SRC_DIR, duplicate=0)
 
+# ---- Source files ----
 sources = Glob(os.path.join(OBJ_DIR, "*.cpp"))
 
-# Build program
+# ---- Build program ----
 program = env.Program(
     target=os.path.join(BIN_DIR, "main"),
     source=sources
 )
 
-env.Execute(Mkdir(BIN_DIR))
-
 Default(program)
 
 # ---- Compile commands target ----
-compdb = env.CompilationDatabase("compile_commands.json")
-
+env.CompilationDatabase("compile_commands.json")

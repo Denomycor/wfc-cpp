@@ -6,8 +6,8 @@
 
 
 class WFC3D : public AbstractWFC {
-protected:
-    WaveState m_wave;
+public:
+    WaveState* m_wave;
     EntropyWFC m_entropy;
     TileWeights m_weights;
     WaveConstraints m_constraints;
@@ -17,6 +17,12 @@ public:
     Signal<WFC3D*> finished;
 
     WFC3D(int width, int height, int depth, const TileWeights& weights);
+    WFC3D(
+        const WFC3D& p_source, 
+        const std::tuple<int,int,int>& offset,
+        const std::tuple<int,int,int>& length,
+        const TileWeights& weights
+    );
 
     void add_constraint(
         TileId tile,
@@ -36,6 +42,8 @@ public:
         const std::vector<TileId>& right
     );
 
+    void add_constraint_allow_all(TileId tile);
+
     std::tuple<int, int, int> select_cell();
     void collapse_cell(const std::tuple<int, int, int>& coords);
     void propagate_constraints(const std::tuple<int, int, int>& coords);
@@ -44,12 +52,9 @@ public:
     bool step() override;
     bool run() override;
 
-};
-
-class WFC2D : public WFC3D {
-public: 
-    WFC2D(int width, int height, const TileWeights& weights);
     void print2D() const;
+
+    virtual ~WFC3D();
 
 };
 
