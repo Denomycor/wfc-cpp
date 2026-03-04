@@ -37,7 +37,7 @@ protected:
     int m_status;
 
 public:
-    enum Satus {
+    enum Status {
         NOT_INIT_STATUS,
         READY_STATUS,
         RUNNING_STATUS,
