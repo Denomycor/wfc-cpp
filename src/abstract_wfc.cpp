@@ -1,46 +1,72 @@
 #include "abstract_wfc.hpp"
 #include <cmath>
 
-EntropyWFC::EntropyWFC(int width, int height, int depth)
-:entropy_memory(width, height, depth)
+EntropyMemory::EntropyMemory(const Vec3u& size)
+:m_memory(std::get<0>(size), std::get<1>(size), std::get<2>(size))
 {}
 
-double EntropyWFC::get_cell_entropy(int x, int y, int z, const CellState& cell, const TileWeights& weights){
-    if(entropy_memory.get(x,y,z).first){
-        return entropy_memory.get(x,y,z).second;
+double EntropyMemory::get_cell_entropy(const Vec3u& cell, const CellState& state, const TileWeights& weights){
+    auto[x,y,z] = cell;
+    if(m_memory.get(x,y,z).first){
+        return m_memory.get(x,y,z).second;
     }else{
         double w_sum = 0;
         double sum_sum = 0;
-        for(auto[t,b] : cell){
-            if(b){
-                w_sum += weights.at(t);
-                sum_sum += weights.at(t) * log(weights.at(t));
+        
+        for(std::size_t i=0; i<state.size(); i++){
+            if(state[i]){
+                w_sum += weights[i];
+                sum_sum += weights[i] * log(weights[i]);
             }
         }
+
         if (w_sum == 0){
-            return -1; // 0 tiles in cell, contradiction
+        // All tiles were false -> contradiction
+            return -1;
         }
         double value = log(w_sum) - (sum_sum/w_sum);
-        entropy_memory.set(x, y, z, std::pair<bool, double>{true, value});
+        m_memory.set(x, y, z, std::pair<bool, double>{true, value});
         return value;
     }
 }
 
-void EntropyWFC::invalidate_cell(int x, int y, int z){
-    entropy_memory.get(x, y, z).first = false;
+void EntropyMemory::invalidate_cell(const Vec3u& cell){
+    auto[x,y,z] = cell;
+    m_memory.get(x, y, z).first = false;
 }
 
-void EntropyWFC::invalidate_all(){
-    for(auto& [b,d] : entropy_memory){
+void EntropyMemory::invalidate_all(){
+    for(auto& [b,d] : m_memory){
         b = false;
     }
 }
 
-AbstractWFC::AbstractWFC()
-:m_status(AbstractWFC::NOT_INIT_STATUS)
-{}
-
-int AbstractWFC::get_status() {
+AbstractWFC::Status AbstractWFC::get_stats() const {
     return m_status;
+}
+
+AdjacencyConstraints::AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all)
+:m_constraints(), m_tiles()
+{
+    for(auto& vec : m_constraints){
+        vec.resize(n_tiles);
+        for(auto& bs : vec){
+            bs.resize(n_tiles, default_allow_all);
+        }
+    }
+}
+
+
+TileConstraints& AdjacencyConstraints::get(Directions dir){
+    return m_constraints[dir];
+}
+
+
+const WaveConstraints& AdjacencyConstraints::get() const {
+    return m_constraints;
+}
+
+WaveConstraints& AdjacencyConstraints::get_data(){
+    return m_constraints;
 }
 

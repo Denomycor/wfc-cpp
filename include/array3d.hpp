@@ -4,7 +4,9 @@
 #include <tuple>
 #include <vector>
 #include <utility>
-#include "utils.hpp"
+
+
+int wrapped(int lower, int upper, int x);
 
 /*
  * An interface for a 3D grid.like container that stores all elements in a contiguous array

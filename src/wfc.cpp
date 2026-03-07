@@ -1,95 +1,64 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
-#include "array3d.hpp"
-#include "utils.hpp"
 #include <cfloat>
-#include <iostream>
 #include <queue>
-#include <tuple>
-#include <vector>
 
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec)
-{
-    os << "[";
-    for (size_t i = 0; i < vec.size(); ++i)
-    {
-        os << vec[i];
-        if (i + 1 < vec.size())
-            os << ", ";
+
+WFC::WFC(const Vec3u& size, const TileWeights& weights)
+:m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
+m_entropy(size),
+m_adjacency(weights.size(), true),
+m_weights(weights)
+{}
+
+
+WFC::WFC(const WFC& view, const Vec3u offset, const Vec3u length)
+:m_wave(new Array3DView<CellState>(*(view.m_wave), offset, length)),
+m_entropy(length), 
+m_adjacency(view.m_adjacency),
+m_weights(view.m_weights)
+{}
+
+
+WFC::~WFC() {
+    delete m_wave;
+}
+
+
+void WFC::init(){
+    for(auto& c : *m_wave){
+        c.resize(m_weights.size(), 1);
     }
-    os << "]";
-    return os;
 }
 
 
-template <typename K, typename V>
-std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, V>& map)
-{
-    os << "{";
-    auto it = map.begin();
-    while (it != map.end())
-    {
-        os << it->first << ": " << it->second;
-        ++it;
-        if (it != map.end())
-            os << ", ";
+AdjacencyConstraints& WFC::get_constraints(){
+    return m_adjacency;
+}
+
+
+Array3D<std::size_t> WFC::get_result() {
+    Array3D<std::size_t> out(m_wave->get_width(), m_wave->get_height(), m_wave->get_depth());
+    for(std::size_t i = 0; i < m_wave->size(); i++) {
+        out.get_linear(i) = m_wave->get_linear(i).find_first();
     }
-    os << "}";
-    return os;
+    return out;
 }
 
 
-void WFC3D::init() {
-    for(auto& tile : *m_wave){
-        for(auto [t,w] : m_weights){
-            if(w>0)
-                tile[t] = true;
-        }
-    }
-    m_status = AbstractWFC::READY_STATUS;
-}
-
-WFC3D::WFC3D(int width, int height, int depth, const TileWeights& weights)
-:AbstractWFC(), m_wave(new Array3D<CellState>(width, height, depth)), m_entropy(width, height, depth), m_weights(weights), m_constraints()
-{
-    m_constraints[Directions::UP] = TileConstraints();
-    m_constraints[Directions::DOWN] = TileConstraints(); 
-    m_constraints[Directions::LEFT] = TileConstraints(); 
-    m_constraints[Directions::RIGHT] = TileConstraints(); 
-    m_constraints[Directions::FRONT] = TileConstraints(); 
-    m_constraints[Directions::BACK] = TileConstraints(); 
-}
-
-WFC3D::WFC3D(
-    const WFC3D& p_source, 
-    const std::tuple<int,int,int>& offset,
-    const std::tuple<int,int,int>& length,
-    const TileWeights& weights
-)
-:AbstractWFC(), 
-    m_wave(new Array3DView<CellState>(*(p_source.m_wave), offset, length)), 
-    m_entropy(p_source.m_wave->get_width(), p_source.m_wave->get_height(), p_source.m_wave->get_depth()), 
-    m_weights(weights), 
-    m_constraints()
-{
-    m_constraints[Directions::UP] = TileConstraints();
-    m_constraints[Directions::DOWN] = TileConstraints(); 
-    m_constraints[Directions::LEFT] = TileConstraints(); 
-    m_constraints[Directions::RIGHT] = TileConstraints(); 
-    m_constraints[Directions::FRONT] = TileConstraints(); 
-    m_constraints[Directions::BACK] = TileConstraints(); 
+WaveState& WFC::get_wave() {
+    return *m_wave;
 }
 
 
-std::tuple<int, int, int> WFC3D::select_cell(){
+Vec3u WFC::select_cell(){
     std::vector<std::tuple<int, int, int>> out{{0,0,0}};
     double entr = DBL_MAX;
 
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
         for(std::size_t y = 0; y < m_wave->get_height(); y++){
             for(std::size_t z = 0; z < m_wave->get_depth(); z++){
-                double e = m_entropy.get_cell_entropy(x, y, z, m_wave->get(x,y,z), m_weights);
+                double e = m_entropy.get_cell_entropy({x,y,z}, m_wave->get(x,y,z), m_weights);
                 if(e > 0) {
                     if(e < entr){
                         out.clear();
@@ -118,14 +87,15 @@ std::tuple<int, int, int> WFC3D::select_cell(){
     }
 }
 
+
 // Build a map of only the available tiles and normalize their weights
-static auto normalized_weight_map(const std::unordered_map<int, double>& weights, const std::unordered_map<int, bool>& tiles) {
-    std::unordered_map<int, double> out;
+static auto normalized_weight_map(const TileWeights& weights, const CellState& tiles) {
+    std::unordered_map<std::size_t, double> out;
     double w_sum = 0;
-    for(auto[t,b] : tiles){
-        if(b){
-            out[t] = weights.at(t);
-            w_sum += weights.at(t);
+    for(std::size_t i = 0; i < tiles.size(); i++){
+        if(tiles[i]){
+            out[i] = weights[i];
+            w_sum += weights[i];
         }
     }
     for(auto[t,w] : out){
@@ -134,13 +104,14 @@ static auto normalized_weight_map(const std::unordered_map<int, double>& weights
     return out;
 }
 
-void WFC3D::collapse_cell(const std::tuple<int, int, int>& coords) {
-    int x=std::get<0>(coords), y=std::get<1>(coords), z=std::get<2>(coords);
+
+void WFC::collapse_cell(const Vec3u& coords) {
+    auto[x,y,z] = coords;
     auto normalized = normalized_weight_map(m_weights, m_wave->get(x, y, z));
 
     auto r = rand() / (double) RAND_MAX;
     double acc = 0;
-    int selected_id = normalized.begin()->first;
+    auto selected_id = normalized.begin()->first;
     for(auto[t,w] : normalized){
         acc += w;
         if(r <= acc){
@@ -148,91 +119,75 @@ void WFC3D::collapse_cell(const std::tuple<int, int, int>& coords) {
             break;
         }
     }
-    for(auto[t,b] : m_wave->get(x,y,z)){
-        if(t != selected_id){
-            m_wave->get(x,y,z)[t] = false;
-        }else{
-            assert(b);
+    for(std::size_t i = 0; i < m_wave->get(x,y,z).size(); i++){
+        if(i != selected_id){
+            m_wave->get(x,y,z)[i] = false;
         }
     }
-    m_entropy.invalidate_cell(x, y, z);
+    m_entropy.invalidate_cell({x, y, z});
 }
 
 
-static bool update_cell_state(std::unordered_map<int, bool>& cell, const std::unordered_map<int, std::vector<int>>& constraints, const std::unordered_map<int, bool>& neighboor) {
-    bool updated = false;
-    for(auto[tile, enabled] : cell){
-        // skip tiles already excluded
-        if(!enabled) continue;
-
-        bool found = false;
-
-        for(auto[n_tile, n_enabled] : neighboor){
-            // skip tiles already excluded
-            if(!n_enabled) continue;
-
-            const auto& vec = constraints.at(n_tile);
-            if(vec_has(vec, tile)){
-                found = true;
-                break;
-            }
+static bool update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighboor) {
+    auto tmp = cell;
+    for(std::size_t i = 0; i < neighboor.size(); i++){
+        if(neighboor[i]){
+            cell &= constraints[i];
         }
-        updated = updated || !found;
-        cell[tile] = found;
     }
-    return updated;
+    return tmp != cell;
 }
 
 
-void WFC3D::propagate_constraints(const std::tuple<int, int, int>& coords){
+void WFC::propagate_constraints(const Vec3u& coords){
     int x=std::get<0>(coords), y=std::get<1>(coords), z=std::get<2>(coords);
     std::queue<std::tuple<int, int, int>> queue;
     queue.push({x,y,z});
 
     while(!queue.empty()){
         auto current = queue.front();
-        int cur_x=std::get<0>(current), cur_y=std::get<1>(current), cur_z=std::get<2>(current);
+        auto[cur_x, cur_y, cur_z] = current;
 
         //Up
         if(cur_y > 0){
-            if(update_cell_state(m_wave->get(cur_x, cur_y-1, cur_z), m_constraints[Directions::UP], m_wave->get(cur_x, cur_y, cur_z))){
+            if(update_cell_state(m_wave->get(cur_x, cur_y-1, cur_z), m_adjacency.get(Directions::UP), m_wave->get(cur_x, cur_y, cur_z))){
                 queue.push({cur_x, cur_y-1, cur_z});
-                m_entropy.invalidate_cell(cur_x, cur_y-1, cur_z);
+                m_entropy.invalidate_cell({cur_x, cur_y-1, cur_z});
             }
         }
         //Down
         if(cur_y < static_cast<int>(m_wave->get_height())-1){
-            if(update_cell_state(m_wave->get(cur_x, cur_y+1, cur_z), m_constraints[Directions::DOWN], m_wave->get(cur_x, cur_y, cur_z))){
+            if(update_cell_state(m_wave->get(cur_x, cur_y+1, cur_z), m_adjacency.get(Directions::DOWN), m_wave->get(cur_x, cur_y, cur_z))){
                 queue.push({cur_x, cur_y+1, cur_z});
-                m_entropy.invalidate_cell(cur_x, cur_y+1, cur_z);
+                m_entropy.invalidate_cell({cur_x, cur_y+1, cur_z});
             }
         }
         //Left
         if(cur_x > 0){
-            if(update_cell_state(m_wave->get(cur_x-1, cur_y, cur_z), m_constraints[Directions::LEFT], m_wave->get(cur_x, cur_y, cur_z))){
+            if(update_cell_state(m_wave->get(cur_x-1, cur_y, cur_z), m_adjacency.get(Directions::LEFT), m_wave->get(cur_x, cur_y, cur_z))){
                 queue.push({cur_x-1, cur_y, cur_z});
-                m_entropy.invalidate_cell(cur_x-1, cur_y, cur_z);
+                m_entropy.invalidate_cell({cur_x-1, cur_y, cur_z});
             }
         }
         //Right
         if(cur_x < static_cast<int>(m_wave->get_width())-1){
-            if(update_cell_state(m_wave->get(cur_x+1, cur_y, cur_z), m_constraints[Directions::RIGHT], m_wave->get(cur_x, cur_y, cur_z))){
+            if(update_cell_state(m_wave->get(cur_x+1, cur_y, cur_z), m_adjacency.get(Directions::RIGHT), m_wave->get(cur_x, cur_y, cur_z))){
                 queue.push({cur_x+1, cur_y, cur_z});
-                m_entropy.invalidate_cell(cur_x+1, cur_y, cur_z);
+                m_entropy.invalidate_cell({cur_x+1, cur_y, cur_z});
             }
         }
         //Back
         if(cur_z > 0){
-            if(update_cell_state(m_wave->get(cur_x, cur_y, cur_z-1), m_constraints[Directions::BACK], m_wave->get(cur_x, cur_y, cur_z))){
+            if(update_cell_state(m_wave->get(cur_x, cur_y, cur_z-1), m_adjacency.get(Directions::BACK), m_wave->get(cur_x, cur_y, cur_z))){
                 queue.push({cur_x, cur_y, cur_z-1});
-                m_entropy.invalidate_cell(cur_x, cur_y, cur_z-1);
+                m_entropy.invalidate_cell({cur_x, cur_y, cur_z-1});
             }
         }
         //Front
         if(cur_z < static_cast<int>(m_wave->get_depth())-1){
-            if(update_cell_state(m_wave->get(cur_x, cur_y, cur_z+1), m_constraints[Directions::FRONT], m_wave->get(cur_x, cur_y, cur_z))){
+            if(update_cell_state(m_wave->get(cur_x, cur_y, cur_z+1), m_adjacency.get(Directions::FRONT), m_wave->get(cur_x, cur_y, cur_z))){
                 queue.push({cur_x, cur_y, cur_z+1});
-                m_entropy.invalidate_cell(cur_x, cur_y, cur_z+1);
+                m_entropy.invalidate_cell({cur_x, cur_y, cur_z+1});
             }
         }
         queue.pop();
@@ -240,7 +195,7 @@ void WFC3D::propagate_constraints(const std::tuple<int, int, int>& coords){
 }
 
 
-bool WFC3D::step() {
+bool WFC::step() {
     auto selected = select_cell();
     if(m_status != AbstractWFC::RUNNING_STATUS){
         return true;
@@ -252,67 +207,12 @@ bool WFC3D::step() {
 }
 
 
-bool WFC3D::run() {
+bool WFC::run() {
     while(true){
         if(step()){
             finished.emit(this);
             return m_status == AbstractWFC::CONTRADICTION_STATUS;
         };
     }
-}
-
-
-void WFC3D::add_constraint(
-    TileId tile,
-    const std::vector<TileId>& up,
-    const std::vector<TileId>& down,
-    const std::vector<TileId>& left,
-    const std::vector<TileId>& right
-){
-    m_constraints[Directions::UP][tile] = up;
-    m_constraints[Directions::DOWN][tile] = down;
-    m_constraints[Directions::LEFT][tile] = left;
-    m_constraints[Directions::RIGHT][tile] = right;
-}
-
-
-void WFC3D::add_constraint(
-    TileId tile,
-    const std::vector<TileId>& up,
-    const std::vector<TileId>& down,
-    const std::vector<TileId>& left,
-    const std::vector<TileId>& right,
-    const std::vector<TileId>& front,
-    const std::vector<TileId>& back
-){
-    add_constraint(tile, up, down, left, right);
-    m_constraints[Directions::FRONT][tile] = front;
-    m_constraints[Directions::BACK][tile] = back;
-}
-
-
-void WFC3D::add_constraint_allow_all(TileId tile){
-    std::vector<TileId> vec;
-    for(const auto&[t,w] : m_weights){
-        vec.emplace_back(t);
-    }
-    add_constraint(tile, vec, vec, vec, vec, vec, vec);
-}
-
-
-void WFC3D::print2D() const {
-    for(std::size_t y=0; y<m_wave->get_height(); y++){
-        for(std::size_t x=0; x<m_wave->get_width(); x++){
-            for(auto[k,b] : m_wave->get(x,y,0)){
-                if(b) std::cout << k << '.';
-            }
-            std::cout << ' ';
-        }
-        std::cout << std::endl;
-    }
-}
-
-WFC3D::~WFC3D(){
-    delete m_wave;
 }
 

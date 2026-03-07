@@ -1,8 +1,11 @@
 #pragma once
-
-#include "array3d.hpp"
-#include <unordered_map>
+#include <array>
+#include <cstddef>
+#include <tuple>
+#include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <vector>
+#include "array3d.hpp"
+
 
 enum Directions {
     UP,
@@ -10,32 +13,59 @@ enum Directions {
     LEFT,
     RIGHT,
     FRONT,
-    BACK
+    BACK,
+    COUNT,
 };
 
-using TileId = int;
-using CellState = std::unordered_map<TileId, bool>;
+// Avoid lengthy type declarations
+using Vec3i = std::tuple<int,int,int>;
+using Vec3u = std::tuple<std::size_t,std::size_t,std::size_t>;
+using CellState = boost::dynamic_bitset<>;
 using WaveState = AbstractArray3D<CellState>;
-using TileWeights = std::unordered_map<TileId, double>;
-using TileConstraints = std::unordered_map<TileId, std::vector<TileId>>;
-using WaveConstraints = std::unordered_map<Directions, TileConstraints>;
+using TileWeights = std::vector<double>;
+using TileConstraints = std::vector<boost::dynamic_bitset<>>;
+using WaveConstraints = std::array<TileConstraints, Directions::COUNT>;
 
-class EntropyWFC {
+
+/*
+ * Memoizes entropy values for WFC cells to avoid recalculating values
+ */
+class EntropyMemory {
 private:
-    Array3D<std::pair<bool, double>> entropy_memory;
+    Array3D<std::pair<bool, double>> m_memory;
 
 public:
-    EntropyWFC(int width, int height, int depth);
+    EntropyMemory(const Vec3u& size);
 
-    double get_cell_entropy(int x, int y, int z, const CellState& cell, const TileWeights& weights);
-    void invalidate_cell(int x, int y, int z);
+    double get_cell_entropy(const Vec3u& cell, const CellState& state, const TileWeights& weights);
+    void invalidate_cell(const Vec3u& cell);
     void invalidate_all();
+
 };
 
-class AbstractWFC {
-protected:
-    int m_status;
 
+/*
+ * Wraps Adjacency constraint creation to later feed WFC generation
+ */
+class AdjacencyConstraints {
+private:
+    WaveConstraints m_constraints;
+    std::size_t m_tiles;
+
+public:
+    explicit AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all = true);
+
+    const WaveConstraints& get() const;
+    TileConstraints& get(Directions dir);
+    WaveConstraints& get_data();
+
+};
+
+
+/*
+ * Base class for all WFC variations, basically a constraint statisfaction problem wrapper
+ */
+class AbstractWFC{
 public:
     enum Status {
         NOT_INIT_STATUS,
@@ -45,13 +75,12 @@ public:
         CONTRADICTION_STATUS
     };
 
-    AbstractWFC();
+protected:
+    Status m_status = NOT_INIT_STATUS;
 
-    virtual void init() = 0;
-    virtual bool step() = 0;
-    virtual bool run() = 0;
+public:
+    Status get_stats() const;
 
-    int get_status();
-
+    virtual ~AbstractWFC() = default;
 };
 
