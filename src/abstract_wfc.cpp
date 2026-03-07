@@ -57,16 +57,17 @@ AdjacencyConstraints::AdjacencyConstraints(std::size_t n_tiles, bool default_all
 }
 
 
-TileConstraints& AdjacencyConstraints::get(Directions dir){
-    return m_constraints[dir];
-}
-
-
 const WaveConstraints& AdjacencyConstraints::get() const {
     return m_constraints;
 }
 
-WaveConstraints& AdjacencyConstraints::get_data(){
-    return m_constraints;
+
+const TileConstraints& AdjacencyConstraints::get(Directions dir) const {
+    return m_constraints[dir];
+}
+
+
+void AdjacencyConstraints::change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value){
+    m_constraints[dir][id][n_id] = value;
 }
 

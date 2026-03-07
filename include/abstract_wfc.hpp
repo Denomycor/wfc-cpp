@@ -56,8 +56,8 @@ public:
     explicit AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all = true);
 
     const WaveConstraints& get() const;
-    TileConstraints& get(Directions dir);
-    WaveConstraints& get_data();
+    const TileConstraints& get(Directions dir) const;
+    void change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value);
 
 };
 

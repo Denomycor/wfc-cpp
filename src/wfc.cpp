@@ -1,5 +1,6 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
+#include <cassert>
 #include <cfloat>
 #include <queue>
 
@@ -132,6 +133,7 @@ static bool update_cell_state(CellState& cell, const TileConstraints& constraint
     auto tmp = cell;
     for(std::size_t i = 0; i < neighboor.size(); i++){
         if(neighboor[i]){
+            assert(cell.size() == constraints[i].size());
             cell &= constraints[i];
         }
     }
