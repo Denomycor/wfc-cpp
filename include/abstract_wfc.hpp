@@ -17,6 +17,10 @@ enum Directions {
     COUNT,
 };
 
+
+Directions get_opposite(Directions dir);
+
+
 // Avoid lengthy type declarations
 using Vec3i = std::tuple<int,int,int>;
 using Vec3u = std::tuple<std::size_t,std::size_t,std::size_t>;

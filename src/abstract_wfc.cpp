@@ -1,6 +1,21 @@
 #include "abstract_wfc.hpp"
 #include <cmath>
 
+
+Directions get_opposite(Directions dir) {
+    switch (dir) {
+    case UP: return DOWN;
+    case DOWN: return UP;
+    case LEFT: return RIGHT;
+    case RIGHT: return LEFT;
+    case FRONT: return BACK;
+    case BACK: return FRONT;
+    case COUNT:
+      break;
+    }
+    return COUNT;
+}
+
 EntropyMemory::EntropyMemory(const Vec3u& size)
 :m_memory(std::get<0>(size), std::get<1>(size), std::get<2>(size))
 {}
@@ -69,5 +84,6 @@ const TileConstraints& AdjacencyConstraints::get(Directions dir) const {
 
 void AdjacencyConstraints::change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value){
     m_constraints[dir][id][n_id] = value;
+    m_constraints[get_opposite(dir)][n_id][id] = value;
 }
 
