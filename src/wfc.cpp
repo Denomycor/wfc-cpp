@@ -102,43 +102,32 @@ std::optional<Vec3u> WFC::select_cell(){
 }
 
 
-// Build a map of only the available tiles and normalize their weights
-static auto normalized_weight_map(const TileWeights& weights, const CellState& tiles) {
-    std::unordered_map<std::size_t, double> out;
-    double w_sum = 0;
-    for(std::size_t i = 0; i < tiles.size(); i++){
-        if(tiles[i]){
-            out[i] = weights[i];
-            w_sum += weights[i];
-        }
-    }
-    for(auto[t,w] : out){
-        out[t] = w/w_sum;
-    }
-    return out;
-}
-
-
 void WFC::collapse_cell(const Vec3u& coords) {
     auto[x,y,z] = coords;
-    auto normalized = normalized_weight_map(m_weights, m_wave->get(x, y, z));
+    auto& cell = m_wave->get(x, y, z);
+
+    double total = 0;
+    for(std::size_t i=0; i<cell.size(); i++){
+        if(cell[i])
+            total += m_weights[i];
+    }
 
     auto r = rand() / (double) RAND_MAX;
     double acc = 0;
-    auto selected_id = normalized.begin()->first;
-    for(auto[t,w] : normalized){
-        acc += w;
-        if(r <= acc){
-            selected_id = t;
-            break;
+    auto selected = 0;
+    for(std::size_t i=0; i<cell.size(); i++){
+        if(cell[i]){
+            acc += m_weights[i] / total;
+            if(r <= acc){
+                selected = i;
+                break;
+            }
         }
     }
-    for(std::size_t i = 0; i < m_wave->get(x,y,z).size(); i++){
-        if(i != selected_id){
-            m_wave->get(x,y,z)[i] = false;
-        }
-    }
-    m_entropy.invalidate_cell({x, y, z});
+
+    cell.reset();
+    cell[selected] = true; 
+    m_entropy.invalidate_cell(coords);
 }
 
 
