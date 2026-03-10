@@ -33,6 +33,8 @@ public:
     void propagate_constraints(const Vec3u& coords);
 
     void init();
+    void init(std::size_t id, bool value);
+
     bool step();
     bool run();
 

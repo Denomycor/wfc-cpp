@@ -41,6 +41,13 @@ void WFC::init(){
 }
 
 
+void WFC::init(std::size_t id, bool value){
+    for(auto& c : *m_wave){
+        c[id] = value;
+    }
+}
+
+
 AdjacencyConstraints& WFC::get_constraints(){
     return m_adjacency;
 }
@@ -70,26 +77,24 @@ std::optional<Vec3u> WFC::select_cell(){
     double entr = DBL_MAX;
 
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
-        for(std::size_t y = 0; y < m_wave->get_height(); y++){
-            for(std::size_t z = 0; z < m_wave->get_depth(); z++){
-                double e = m_entropy.get_cell_entropy({x,y,z}, m_wave->get(x,y,z), m_weights);
-                if(e > 0) {
-                    if(e < entr){
-                        out.clear();
-                        out.emplace_back(x,y,z);   
-                        entr = e;
-                    } else if (e == entr) {
-                    // this comparison of doubles is ok because cells with same tile-weight distribution should return the same exact entropy value
-                        out.emplace_back(x,y,z);
-                    }
-                }else if(e < 0){
-                // get_cell_entropy returns < 0 if a cell has 0 tiles possible
-                    m_status = AbstractWFC::CONTRADICTION_STATUS;
-                    return {};
-                }
+    for(std::size_t y = 0; y < m_wave->get_height(); y++){
+    for(std::size_t z = 0; z < m_wave->get_depth(); z++){
+        double e = m_entropy.get_cell_entropy({x,y,z}, m_wave->get(x,y,z), m_weights);
+        if(e > 0) {
+            if(e < entr){
+                out.clear();
+                out.emplace_back(x,y,z);   
+                entr = e;
+            } else if (e == entr) {
+            // this comparison of doubles is ok because cells with same tile-weight distribution should return the same exact entropy value
+                out.emplace_back(x,y,z);
             }
+        }else if(e < 0){
+        // get_cell_entropy returns < 0 if a cell has 0 tiles possible
+            m_status = AbstractWFC::CONTRADICTION_STATUS;
+            return {};
         }
-    }
+    }}}
 
     if(entr == DBL_MAX) {
     //All cells have collapsed get_cell_entropy always returned 0 and entr is unchanged since initialized

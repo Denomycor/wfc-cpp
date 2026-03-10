@@ -1,5 +1,7 @@
 #include "abstract_wfc.hpp"
+#include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <cmath>
+#include <string>
 
 
 Directions get_opposite(Directions dir) {
@@ -76,6 +78,10 @@ const WaveConstraints& AdjacencyConstraints::get() const {
     return m_constraints;
 }
 
+WaveConstraints& AdjacencyConstraints::get() {
+    return m_constraints;
+}
+
 
 const TileConstraints& AdjacencyConstraints::get(Directions dir) const {
     return m_constraints[dir];
@@ -87,3 +93,92 @@ void AdjacencyConstraints::change_rule(std::size_t id, Directions dir, std::size
     m_constraints[get_opposite(dir)][n_id][id] = value;
 }
 
+//********************************************************************************************************
+
+// static auto add_new_id(TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels) {
+//     auto size = weights.size();
+//     weights.emplace_back(0);
+//     labels.emplace_back();
+//     for(auto& v : constraints.get()){
+//         for(auto& bs : v){
+//             bs.resize(size+1, 1);
+//         }
+//         v.emplace_back(boost::dynamic_bitset<>(size+1, 1));
+//     }
+//     return size;
+// }
+//
+// void generate_variants(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels) {
+//     if(labels.size() != weights.size()){
+//         labels.resize(weights.size());
+//     }
+//     if(labels[id].empty()){
+//         labels[id] = std::to_string(id);
+//     }
+//     auto& c = constraints.get();
+//
+//     switch (type) {
+//
+//     case NONE:
+//     case FULL:
+//         return;
+//
+//     // L symmetry → 4 rotations
+//     case CORNER:
+//     case ROTATED: {
+//         std::size_t prev = id;
+//
+//         for(int r = 1; r <= 3; r++){
+//             auto new_id = add_new_id(weights, constraints, labels);
+//
+//             weights[new_id] = weights[id];
+//
+//             c[Directions::UP][new_id]    = c[Directions::LEFT][prev];
+//             c[Directions::RIGHT][new_id] = c[Directions::UP][prev];
+//             c[Directions::DOWN][new_id]  = c[Directions::RIGHT][prev];
+//             c[Directions::LEFT][new_id]  = c[Directions::DOWN][prev];
+//
+//             labels[new_id] = labels[id] +
+//                 ((type == CORNER) ? "_L" : "_T") +
+//                 std::to_string(r);
+//
+//             prev = new_id;
+//         }
+//
+//         return;
+//     }
+//
+//     // I symmetry → 180° rotation
+//     case STRAIGHT: {
+//         auto new_id = add_new_id(weights, constraints, labels);
+//
+//         weights[new_id] = weights[id];
+//
+//         c[Directions::UP][new_id] = c[Directions::DOWN][id];
+//         c[Directions::RIGHT][new_id] = c[Directions::LEFT][id];
+//         c[Directions::DOWN][new_id] = c[Directions::UP][id];
+//         c[Directions::LEFT][new_id] = c[Directions::RIGHT][id];
+//
+//         labels[new_id] = labels[id] + "_I1";
+//
+//         return;
+//     }
+//
+//     // diagonal mirror symmetry
+//     case DIAGONAL: {
+//         auto new_id = add_new_id(weights, constraints, labels);
+//
+//         weights[new_id] = weights[id];
+//
+//         c[Directions::UP][new_id] = c[Directions::LEFT][id];
+//         c[Directions::RIGHT][new_id] = c[Directions::DOWN][id];
+//         c[Directions::DOWN][new_id] = c[Directions::RIGHT][id];
+//         c[Directions::LEFT][new_id] = c[Directions::UP][id];
+//
+//         labels[new_id] = labels[id] + "_D1";
+//
+//         return;
+//     }
+//     }
+// }
+//

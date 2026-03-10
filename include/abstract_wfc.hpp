@@ -17,6 +17,15 @@ enum Directions {
     COUNT,
 };
 
+enum Variants2D {
+    NONE,
+    CORNER,
+    ROTATED,
+    STRAIGHT,
+    DIAGONAL,
+    FULL,
+};
+
 
 Directions get_opposite(Directions dir);
 
@@ -27,6 +36,7 @@ using Vec3u = std::tuple<std::size_t,std::size_t,std::size_t>;
 using CellState = boost::dynamic_bitset<>;
 using WaveState = AbstractArray3D<CellState>;
 using TileWeights = std::vector<double>;
+using TileLabels = std::vector<std::string>;
 using TileConstraints = std::vector<boost::dynamic_bitset<>>;
 using WaveConstraints = std::array<TileConstraints, Directions::COUNT>;
 
@@ -60,9 +70,9 @@ public:
     explicit AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all = true);
 
     const WaveConstraints& get() const;
+    WaveConstraints& get();
     const TileConstraints& get(Directions dir) const;
     void change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value);
-
 };
 
 
@@ -87,4 +97,6 @@ public:
 
     virtual ~AbstractWFC() = default;
 };
+
+void generate_variants(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels);
 
