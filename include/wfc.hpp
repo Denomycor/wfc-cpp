@@ -4,6 +4,7 @@
 #include "observer.hpp"
 #include <queue>
 
+namespace wfc {
 
 class WFC : public AbstractWFC {
 private:
@@ -45,4 +46,6 @@ public:
     ~WFC() override;
 
 };
+
+}
 

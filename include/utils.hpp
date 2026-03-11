@@ -6,6 +6,7 @@
 #include <vector>
 #include <array>
 
+namespace wfc {
 
 int wrapped(int lower, int upper, int x);
 
@@ -55,3 +56,4 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& a)
     return os << ']';
 }
 
+}

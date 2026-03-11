@@ -7,6 +7,9 @@
 #include <vector>
 #include <functional>
 
+
+namespace wfc{
+
 /*
  * Implements observer pattern. Callables are registered with IDs. Negative IDs are reserved for auto-generation
  */ 
@@ -85,4 +88,6 @@ public:
     }
 
 };
+
+}
 

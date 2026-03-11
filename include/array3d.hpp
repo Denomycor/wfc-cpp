@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 
+namespace wfc{
 
 int wrapped(int lower, int upper, int x);
 
@@ -274,4 +275,6 @@ public:
     }
 
 };
+
+}
 

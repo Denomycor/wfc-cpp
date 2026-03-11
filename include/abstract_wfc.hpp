@@ -7,6 +7,8 @@
 #include "array3d.hpp"
 
 
+namespace wfc{
+
 enum Directions {
     UP,
     DOWN,
@@ -98,4 +100,6 @@ public:
 };
 
 void generate_variant(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels);
+
+}
 

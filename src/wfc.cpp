@@ -2,7 +2,8 @@
 #include "abstract_wfc.hpp"
 #include <cassert>
 #include <cfloat>
-#include <queue>
+
+namespace wfc {
 
 
 WFC::WFC(const Vec3u& size, const TileWeights& weights, bool periodic)
@@ -207,5 +208,7 @@ bool WFC::run() {
             return m_status == AbstractWFC::CONTRADICTION_STATUS;
         };
     }
+}
+
 }
 

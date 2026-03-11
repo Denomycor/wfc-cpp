@@ -5,6 +5,8 @@
 #include <string>
 
 
+namespace wfc{
+
 static Directions get_opposite(Directions dir) {
     switch (dir) {
     case UP: return DOWN;
@@ -179,5 +181,7 @@ void generate_variant(std::size_t id,
     for(std::size_t d = 0; d < 4; d++)
         c[d][new_id] = c[D4[transform][d]][id];
     labels[new_id] = labels[id] + "_t" + std::to_string(transform);
+}
+
 }
 
