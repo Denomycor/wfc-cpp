@@ -5,27 +5,29 @@
 #include <queue>
 
 
-WFC::WFC(const Vec3u& size, const TileWeights& weights)
+WFC::WFC(const Vec3u& size, const TileWeights& weights, bool periodic)
 :m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
 m_entropy(size),
 m_adjacency(weights.size(), true),
-m_weights(weights)
+m_weights(weights),
+m_periodic(periodic)
 {}
 
 
-WFC::WFC(const WFC& view, const Vec3u offset, const Vec3u length)
-:m_wave(new Array3DView<CellState>(*(view.m_wave), offset, length)),
-m_entropy(length), 
-m_adjacency(view.m_adjacency),
-m_weights(view.m_weights)
-{}
+// WFC::WFC(const WFC& view, const Vec3u offset, const Vec3u length)
+// :m_wave(new Array3DView<CellState>(*(view.m_wave), offset, length)),
+// m_entropy(length), 
+// m_adjacency(view.m_adjacency),
+// m_weights(view.m_weights)
+// {}
 
 
-WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints)
+WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints, bool periodic)
 :m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
 m_entropy(size),
 m_adjacency(constraints),
-m_weights(weights)
+m_weights(weights),
+m_periodic(periodic)
 {}
 
 
@@ -41,11 +43,11 @@ void WFC::init(){
 }
 
 
-void WFC::init(std::size_t id, bool value){
-    for(auto& c : *m_wave){
-        c[id] = value;
-    }
-}
+// void WFC::init(std::size_t id, bool value){
+//     for(auto& c : *m_wave){
+//         c[id] = value;
+//     }
+// }
 
 
 AdjacencyConstraints& WFC::get_constraints(){
@@ -148,10 +150,15 @@ static bool update_cell_state(CellState& cell, const TileConstraints& constraint
 }
 
 
-void WFC::propagate_direction(const Vec3u& from, const Vec3u& to, Directions dir, std::queue<Vec3u>& queue) {
+void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue) {
     auto[f_x, f_y, f_z] = from;
     auto[t_x, t_y, t_z] = to;
-    if(m_wave->valid_coords(t_x, t_y, t_z)){
+    if(m_periodic){
+        if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), m_adjacency.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
+            queue.push(to);
+            m_entropy.invalidate_cell(to);
+        }
+    }else if(m_wave->valid_coords(t_x, t_y, t_z)){
         if(update_cell_state(m_wave->get(t_x, t_y, t_z), m_adjacency.get(dir), m_wave->get(f_x, f_y, f_z))){
             queue.push(to);
             m_entropy.invalidate_cell(to);
@@ -161,8 +168,8 @@ void WFC::propagate_direction(const Vec3u& from, const Vec3u& to, Directions dir
 
 
 void WFC::propagate_constraints(const Vec3u& coords){
-    int x=std::get<0>(coords), y=std::get<1>(coords), z=std::get<2>(coords);
-    std::queue<Vec3u> queue;
+    auto[x, y, z] = coords;
+    std::queue<Vec3i> queue;
     queue.push({x,y,z});
 
     while(!queue.empty()){

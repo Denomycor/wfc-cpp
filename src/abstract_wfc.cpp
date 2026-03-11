@@ -1,10 +1,11 @@
 #include "abstract_wfc.hpp"
-#include <boost/dynamic_bitset/dynamic_bitset.hpp>
+#include <array>
+#include <boost/dynamic_bitset.hpp>
 #include <cmath>
 #include <string>
 
 
-Directions get_opposite(Directions dir) {
+static Directions get_opposite(Directions dir) {
     switch (dir) {
     case UP: return DOWN;
     case DOWN: return UP;
@@ -18,9 +19,11 @@ Directions get_opposite(Directions dir) {
     return COUNT;
 }
 
+
 EntropyMemory::EntropyMemory(const Vec3u& size)
 :m_memory(std::get<0>(size), std::get<1>(size), std::get<2>(size))
 {}
+
 
 double EntropyMemory::get_cell_entropy(const Vec3u& cell, const CellState& state, const TileWeights& weights){
     auto[x,y,z] = cell;
@@ -47,10 +50,12 @@ double EntropyMemory::get_cell_entropy(const Vec3u& cell, const CellState& state
     }
 }
 
+
 void EntropyMemory::invalidate_cell(const Vec3u& cell){
     auto[x,y,z] = cell;
     m_memory.get(x, y, z).first = false;
 }
+
 
 void EntropyMemory::invalidate_all(){
     for(auto& [b,d] : m_memory){
@@ -58,9 +63,11 @@ void EntropyMemory::invalidate_all(){
     }
 }
 
+
 AbstractWFC::Status AbstractWFC::get_stats() const {
     return m_status;
 }
+
 
 AdjacencyConstraints::AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all)
 :m_constraints(), m_tiles()
@@ -78,6 +85,7 @@ const WaveConstraints& AdjacencyConstraints::get() const {
     return m_constraints;
 }
 
+
 WaveConstraints& AdjacencyConstraints::get() {
     return m_constraints;
 }
@@ -93,92 +101,83 @@ void AdjacencyConstraints::change_rule(std::size_t id, Directions dir, std::size
     m_constraints[get_opposite(dir)][n_id][id] = value;
 }
 
+
 //********************************************************************************************************
 
-// static auto add_new_id(TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels) {
-//     auto size = weights.size();
-//     weights.emplace_back(0);
-//     labels.emplace_back();
-//     for(auto& v : constraints.get()){
-//         for(auto& bs : v){
-//             bs.resize(size+1, 1);
-//         }
-//         v.emplace_back(boost::dynamic_bitset<>(size+1, 1));
-//     }
-//     return size;
-// }
-//
-// void generate_variants(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels) {
-//     if(labels.size() != weights.size()){
-//         labels.resize(weights.size());
-//     }
-//     if(labels[id].empty()){
-//         labels[id] = std::to_string(id);
-//     }
-//     auto& c = constraints.get();
-//
-//     switch (type) {
-//
-//     case NONE:
-//     case FULL:
-//         return;
-//
-//     // L symmetry → 4 rotations
-//     case CORNER:
-//     case ROTATED: {
-//         std::size_t prev = id;
-//
-//         for(int r = 1; r <= 3; r++){
-//             auto new_id = add_new_id(weights, constraints, labels);
-//
-//             weights[new_id] = weights[id];
-//
-//             c[Directions::UP][new_id]    = c[Directions::LEFT][prev];
-//             c[Directions::RIGHT][new_id] = c[Directions::UP][prev];
-//             c[Directions::DOWN][new_id]  = c[Directions::RIGHT][prev];
-//             c[Directions::LEFT][new_id]  = c[Directions::DOWN][prev];
-//
-//             labels[new_id] = labels[id] +
-//                 ((type == CORNER) ? "_L" : "_T") +
-//                 std::to_string(r);
-//
-//             prev = new_id;
-//         }
-//
-//         return;
-//     }
-//
-//     // I symmetry → 180° rotation
-//     case STRAIGHT: {
-//         auto new_id = add_new_id(weights, constraints, labels);
-//
-//         weights[new_id] = weights[id];
-//
-//         c[Directions::UP][new_id] = c[Directions::DOWN][id];
-//         c[Directions::RIGHT][new_id] = c[Directions::LEFT][id];
-//         c[Directions::DOWN][new_id] = c[Directions::UP][id];
-//         c[Directions::LEFT][new_id] = c[Directions::RIGHT][id];
-//
-//         labels[new_id] = labels[id] + "_I1";
-//
-//         return;
-//     }
-//
-//     // diagonal mirror symmetry
-//     case DIAGONAL: {
-//         auto new_id = add_new_id(weights, constraints, labels);
-//
-//         weights[new_id] = weights[id];
-//
-//         c[Directions::UP][new_id] = c[Directions::LEFT][id];
-//         c[Directions::RIGHT][new_id] = c[Directions::DOWN][id];
-//         c[Directions::DOWN][new_id] = c[Directions::RIGHT][id];
-//         c[Directions::LEFT][new_id] = c[Directions::UP][id];
-//
-//         labels[new_id] = labels[id] + "_D1";
-//
-//         return;
-//     }
-//     }
-// }
-//
+static auto add_new_id(TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels) {
+    auto size = weights.size();
+    weights.emplace_back(0);
+    labels.emplace_back();
+    for(auto& v : constraints.get()){
+        for(auto& bs : v){
+            bs.resize(size+1, 1);
+        }
+        v.emplace_back(boost::dynamic_bitset<>(size+1, 1));
+    }
+    return size;
+}
+
+
+static const std::array<std::array<Directions,4>,8> D4 = {{
+    {UP, DOWN, LEFT, RIGHT}, // identity
+    {LEFT, RIGHT, DOWN, UP}, // rot90
+    {DOWN, UP, RIGHT, LEFT}, // rot180
+    {RIGHT, LEFT, UP, DOWN}, // rot270
+    {DOWN, UP, LEFT, RIGHT}, // vertical flip
+    {UP, DOWN, RIGHT, LEFT}, // horizontal flip
+    {RIGHT, LEFT, DOWN, UP}, // horizontal flip + rot90
+    {LEFT, RIGHT, UP, DOWN}, // horizontal flip + rot270
+}};
+
+
+// static const std::array<std::array<int,6>,24> D6 = {{
+//     {UP, DOWN, LEFT, RIGHT, FRONT, BACK},   // 0  identity
+//     {LEFT, RIGHT, DOWN, UP, FRONT, BACK},   // 1
+//     {DOWN, UP, RIGHT, LEFT, FRONT, BACK},   // 2
+//     {RIGHT, LEFT, UP, DOWN, FRONT, BACK},   // 3
+//     {FRONT, BACK, LEFT, RIGHT, DOWN, UP},   // 4
+//     {DOWN, UP, LEFT, RIGHT, BACK, FRONT},   // 5
+//     {BACK, FRONT, LEFT, RIGHT, UP, DOWN},   // 6
+//     {UP, DOWN, FRONT, BACK, RIGHT, LEFT},   // 7
+//     {UP, DOWN, RIGHT, LEFT, BACK, FRONT},   // 8
+//     {UP, DOWN, BACK, FRONT, LEFT, RIGHT},   // 9
+//     {LEFT, RIGHT, FRONT, BACK, DOWN, UP},   // 10
+//     {RIGHT, LEFT, BACK, FRONT, DOWN, UP},   // 11
+//     {LEFT, RIGHT, BACK, FRONT, UP, DOWN},   // 12
+//     {RIGHT, LEFT, FRONT, BACK, UP, DOWN},   // 13
+//     {FRONT, BACK, DOWN, UP, RIGHT, LEFT},   // 14
+//     {BACK, FRONT, UP, DOWN, RIGHT, LEFT},   // 15
+//     {FRONT, BACK, UP, DOWN, LEFT, RIGHT},   // 16
+//     {BACK, FRONT, DOWN, UP, LEFT, RIGHT},   // 17
+//     {DOWN, UP, FRONT, BACK, LEFT, RIGHT},   // 18
+//     {DOWN, UP, BACK, FRONT, RIGHT, LEFT},   // 19
+//     {UP, DOWN, FRONT, BACK, LEFT, RIGHT},   // 20
+//     {UP, DOWN, BACK, FRONT, RIGHT, LEFT},   // 21
+//     {FRONT, BACK, RIGHT, LEFT, UP, DOWN},   // 22
+//     {BACK, FRONT, LEFT, RIGHT, UP, DOWN}    // 23
+// }};
+
+
+void generate_variant(std::size_t id,
+                       Variants2D transform,
+                       TileWeights& weights,
+                       AdjacencyConstraints& constraints,
+                       TileLabels& labels)
+{
+    if(labels.size() != weights.size())
+        labels.resize(weights.size());
+
+    if(labels[id].empty())
+        labels[id] = std::to_string(id);
+
+    if(transform == IDENTITY) // identity
+        return;
+
+    auto new_id = add_new_id(weights, constraints, labels);
+    weights[new_id] = weights[id];
+    auto& c = constraints.get();
+    for(std::size_t d = 0; d < 4; d++)
+        c[d][new_id] = c[D4[transform][d]][id];
+    labels[new_id] = labels[id] + "_t" + std::to_string(transform);
+}
+

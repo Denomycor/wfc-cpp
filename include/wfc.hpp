@@ -11,19 +11,20 @@ private:
     EntropyMemory m_entropy;
     AdjacencyConstraints m_adjacency;
     TileWeights m_weights;
+    bool m_periodic;
 
-    void propagate_direction(const Vec3u& from, const Vec3u& to, Directions dir, std::queue<Vec3u>& queue);
+    void propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue);
 
 public:
     Signal<WFC*> stepped;
     Signal<WFC*> finished;
 
     // Standard constructor
-    WFC(const Vec3u& size, const TileWeights& weights);
+    WFC(const Vec3u& size, const TileWeights& weights, bool periodic = false);
     // Sub WFC constructor
-    WFC(const WFC& view, const Vec3u offset, const Vec3u length);
+    // WFC(const WFC& view, const Vec3u offset, const Vec3u length); // NOT SMART
     // Constructor from pre-existing AdjacencyConstraints
-    WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints);
+    WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints, bool periodic = false);
 
     AdjacencyConstraints& get_constraints();
     TileWeights& get_weights();
@@ -33,7 +34,7 @@ public:
     void propagate_constraints(const Vec3u& coords);
 
     void init();
-    void init(std::size_t id, bool value);
+    // void init(std::size_t id, bool value); // NOT SMART
 
     bool step();
     bool run();

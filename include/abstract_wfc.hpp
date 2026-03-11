@@ -18,16 +18,15 @@ enum Directions {
 };
 
 enum Variants2D {
-    NONE,
-    CORNER,
-    ROTATED,
-    STRAIGHT,
-    DIAGONAL,
-    FULL,
+    IDENTITY,
+    ROT90,
+    ROT180,
+    ROT270,
+    VFLIP,
+    HFLIP,
+    HFLIPROT90,
+    HFLIPROT270,
 };
-
-
-Directions get_opposite(Directions dir);
 
 
 // Avoid lengthy type declarations
@@ -98,5 +97,5 @@ public:
     virtual ~AbstractWFC() = default;
 };
 
-void generate_variants(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels);
+void generate_variant(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels);
 
