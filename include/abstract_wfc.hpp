@@ -94,7 +94,7 @@ protected:
     Status m_status = NOT_INIT_STATUS;
 
 public:
-    Status get_stats() const;
+    Status get_status() const;
 
     virtual ~AbstractWFC() = default;
 };

@@ -66,7 +66,7 @@ void EntropyMemory::invalidate_all(){
 }
 
 
-AbstractWFC::Status AbstractWFC::get_stats() const {
+AbstractWFC::Status AbstractWFC::get_status() const {
     return m_status;
 }
 
