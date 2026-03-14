@@ -1,15 +1,20 @@
 import os
 from SCons.Script import *
 
+Import("env")
+
+# Clone parent environment so flags match godot-cpp
+env = env.Clone()
+
 # ---- Build mode ----
 mode = ARGUMENTS.get("mode", "release")
 
-# ---- Directories (separate per mode to avoid stale objects) ----
+# ---- Directories ----
 SRC_DIR = "src"
 OBJ_DIR = os.path.join("obj", mode)
 LIB_DIR = os.path.join("bin", mode)
 
-# ---- Base compiler flags ----
+# ---- Compiler flags ----
 cxxflags = ["-std=c++17", "-Wall"]
 
 if mode == "debug":
@@ -19,36 +24,26 @@ else:
     cxxflags += ["-O2"]
     linkflags = []
 
-# ---- Environment ----
-env = Environment(
-    CXX="g++",
+env.Append(
     CXXFLAGS=cxxflags,
     LINKFLAGS=linkflags,
-    CPPPATH=["include"],   # wfc-cpp headers
+    CPPPATH=["include"]
 )
 
-# Enable compilation database generation
-env.Tool("compilation_db")
-
-# ---- Create output directories ----
+# ---- Directories ----
+env.Execute(Mkdir(OBJ_DIR))
 env.Execute(Mkdir(LIB_DIR))
 
-# ---- Variant directory ----
+# ---- Variant build ----
 env.VariantDir(OBJ_DIR, SRC_DIR, duplicate=0)
 
-# ---- Source files ----
+# ---- Sources ----
 sources = Glob(os.path.join(OBJ_DIR, "*.cpp"))
 
-# ---- Build static library ----
+# ---- Static library ----
 lib = env.StaticLibrary(
     target=os.path.join(LIB_DIR, "libwfc"),
     source=sources
 )
 
-Default(lib)
-
-# ---- Compile commands target ----
-env.CompilationDatabase("compile_commands.json")
-
-# Return the library object so the main SConstruct can link it
 Return("lib")
