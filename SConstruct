@@ -1,21 +1,31 @@
+#!/usr/bin/env python
+
 import os
-from SCons.Script import *
 
-Import("env")
+EnsureSConsVersion(4, 0)
+EnsurePythonVersion(3, 8)
 
-env = env.Clone()
+# Try importing an existing environment
+try:
+    Import("env")
+except Exception:
+    env = Environment(tools=["default", "compilation_db"])
 
-SRC_DIR = "src"
-OBJ_DIR = "obj"
-LIB_DIR = "bin"
+if not env.get("COMPILATIONDB"):
+    env.Tool("compilation_db")
 
-env.VariantDir(OBJ_DIR, SRC_DIR, duplicate=0)
+env.Append(CXXFLAGS=["-Wall"])
+env.Append(CPPPATH=["include"])
 
-sources = Glob(os.path.join(OBJ_DIR, "*.cpp"))
+sources = Glob("src/*.cpp")
 
 lib = env.StaticLibrary(
-    target=os.path.join(LIB_DIR, "libwfc"),
+    target="libwfc",
     source=sources
 )
 
+env.CompilationDatabase("compile_commands.json")
+
+Default(lib)
 Return("lib")
+
