@@ -3,7 +3,7 @@
 #include <cassert>
 #include <cfloat>
 
-using namespace wfc;
+namespace wfc {
 
 
 WFC::WFC(const Vec3u& size, const TileWeights& weights, bool periodic)
@@ -210,4 +210,5 @@ bool WFC::run() {
     }
 }
 
+}
 
