@@ -18,7 +18,7 @@ private:
     void propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue);
 
 public:
-    Signal<WFC*, int> stepped;
+    Signal<WFC*, int, Vec3u> stepped;
     Signal<WFC*> finished;
 
     // Standard constructor
