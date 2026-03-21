@@ -196,7 +196,7 @@ bool WFC::step() {
     }
     collapse_cell(selected.value());
     propagate_constraints(selected.value());
-    stepped.emit(this);
+    stepped.emit(this, step_counter++);
     return false;
 }
 
