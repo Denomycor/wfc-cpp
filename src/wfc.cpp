@@ -141,9 +141,9 @@ void WFC::collapse_cell(const Vec3u& coords) {
 
 static bool update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
     auto tmp = cell;
-    CellState new_cell;
+    CellState new_cell(cell.size());
     new_cell.reset();
-    for (std::size_t i = 0; i < neighbor.size(); ++i) {
+    for (std::size_t i = 0; i < neighbor.size(); i++) {
         if (neighbor[i]) {
             new_cell |= constraints[i];
         }
