@@ -41,6 +41,7 @@ void WFC::init(){
     for(auto& c : *m_wave){
         c.resize(m_weights.size(), 1);
     }
+    m_status = Status::READY_STATUS;
 }
 
 
