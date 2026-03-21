@@ -21,18 +21,6 @@ void print_array2d(const AbstractArray3D<T>& obj){
 }
 
 
-template<typename Block, typename Allocator>
-std::ostream& operator<<(std::ostream& os, const boost::dynamic_bitset<Block, Allocator>& bs) {
-    for (std::size_t i = bs.find_first();
-         i != boost::dynamic_bitset<Block, Allocator>::npos;
-         i = bs.find_next(i))
-    {
-        os << i << '.';
-    }
-    return os;
-}
-
-
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
