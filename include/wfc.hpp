@@ -13,11 +13,12 @@ private:
     AdjacencyConstraints m_adjacency;
     TileWeights m_weights;
     bool m_periodic;
+    int step_counter = 0;
 
     void propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue);
 
 public:
-    Signal<WFC*> stepped;
+    Signal<WFC*, int, Vec3u> stepped;
     Signal<WFC*> finished;
 
     // Standard constructor

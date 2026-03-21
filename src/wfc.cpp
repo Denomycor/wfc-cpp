@@ -140,14 +140,16 @@ void WFC::collapse_cell(const Vec3u& coords) {
 }
 
 
-static bool update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighboor) {
+static bool update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
     auto tmp = cell;
-    for(std::size_t i = 0; i < neighboor.size(); i++){
-        if(neighboor[i]){
-            assert(cell.size() == constraints[i].size());
-            cell &= constraints[i];
+    CellState new_cell(cell.size());
+    new_cell.reset();
+    for (std::size_t i = 0; i < neighbor.size(); i++) {
+        if (neighbor[i]) {
+            new_cell |= constraints[i];
         }
     }
+    cell &= new_cell;
     return tmp != cell;
 }
 
@@ -197,7 +199,7 @@ bool WFC::step() {
     }
     collapse_cell(selected.value());
     propagate_constraints(selected.value());
-    stepped.emit(this);
+    stepped.emit(this, step_counter++, selected.value());
     return false;
 }
 
