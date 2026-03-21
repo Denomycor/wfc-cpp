@@ -44,4 +44,15 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& a)
     return os << ']';
 }
 
+
+template <typename Block, typename Allocator>
+std::ostream& operator<<(std::ostream& os, const boost::dynamic_bitset<Block, Allocator>& bs) {
+    // print in "human" order: index 0 → N-1 (left to right)
+    for (std::size_t i = 0; i < bs.size(); ++i) {
+        os << bs[i];
+    }
+    return os;
 }
+
+}
+
