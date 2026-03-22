@@ -7,7 +7,7 @@
 
 namespace wfc {
 
-static Directions get_opposite(Directions dir) {
+Directions get_opposite(Directions dir) {
     switch (dir) {
     case UP: return DOWN;
     case DOWN: return UP;

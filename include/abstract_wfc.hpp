@@ -42,6 +42,9 @@ using TileConstraints = std::vector<boost::dynamic_bitset<>>;
 using WaveConstraints = std::array<TileConstraints, Directions::COUNT>;
 
 
+Directions get_opposite(Directions dir);
+
+
 /*
  * Memoizes entropy values for WFC cells to avoid recalculating values
  */
