@@ -60,20 +60,22 @@ public:
 
 
 /*
- * Wraps Adjacency constraint creation to later feed WFC generation
+ * Wraps Adjacency constraint creation and manipulation
  */
 class AdjacencyConstraints {
 private:
     WaveConstraints m_constraints;
     std::size_t m_tiles;
 
+    auto add_new_id(TileWeights& weights, TileLabels& labels);
+
 public:
     explicit AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all = true);
 
     const WaveConstraints& get() const;
-    WaveConstraints& get();
     const TileConstraints& get(Directions dir) const;
     void change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value);
+    void generate_variant(std::size_t id, Variants2D type, TileWeights& weights, TileLabels& labels);
 };
 
 
@@ -98,8 +100,6 @@ public:
 
     virtual ~AbstractWFC() = default;
 };
-
-void generate_variant(std::size_t id, Variants2D type, TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels);
 
 }
 

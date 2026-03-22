@@ -88,11 +88,6 @@ const WaveConstraints& AdjacencyConstraints::get() const {
 }
 
 
-WaveConstraints& AdjacencyConstraints::get() {
-    return m_constraints;
-}
-
-
 const TileConstraints& AdjacencyConstraints::get(Directions dir) const {
     return m_constraints[dir];
 }
@@ -106,11 +101,11 @@ void AdjacencyConstraints::change_rule(std::size_t id, Directions dir, std::size
 
 //********************************************************************************************************
 
-static auto add_new_id(TileWeights& weights, AdjacencyConstraints& constraints, TileLabels& labels) {
+auto AdjacencyConstraints::add_new_id(TileWeights& weights, TileLabels& labels) {
     auto size = weights.size();
     weights.emplace_back(0);
     labels.emplace_back();
-    for(auto& v : constraints.get()){
+    for(auto& v : m_constraints){
         for(auto& bs : v){
             bs.resize(size+1, 1);
         }
@@ -160,10 +155,9 @@ static const std::array<std::array<Directions,4>,8> D4 = {{
 // }};
 
 
-void generate_variant(std::size_t id,
+void AdjacencyConstraints::generate_variant(std::size_t id,
                        Variants2D transform,
                        TileWeights& weights,
-                       AdjacencyConstraints& constraints,
                        TileLabels& labels)
 {
     if(labels.size() != weights.size())
@@ -175,9 +169,9 @@ void generate_variant(std::size_t id,
     if(transform == IDENTITY) // identity
         return;
 
-    auto new_id = add_new_id(weights, constraints, labels);
+    auto new_id = add_new_id(weights, labels);
     weights[new_id] = weights[id];
-    auto& c = constraints.get();
+    auto& c = m_constraints;
     for(std::size_t d = 0; d < 4; d++)
         c[d][new_id] = c[D4[transform][d]][id];
     labels[new_id] = labels[id] + "_t" + std::to_string(transform);

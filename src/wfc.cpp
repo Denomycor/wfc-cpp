@@ -6,11 +6,13 @@
 namespace wfc {
 
 
-WFC::WFC(const Vec3u& size, const TileWeights& weights, bool periodic)
+WFC::WFC(const Vec3u& size, const TileWeights& weights, unsigned int seed, bool periodic)
 :m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
 m_entropy(size),
-m_adjacency(weights.size(), true),
-m_weights(weights),
+constraints(weights.size(), true),
+weights(weights),
+labels(),
+m_rng(seed),
 m_periodic(periodic)
 {}
 
@@ -18,16 +20,18 @@ m_periodic(periodic)
 // WFC::WFC(const WFC& view, const Vec3u offset, const Vec3u length)
 // :m_wave(new Array3DView<CellState>(*(view.m_wave), offset, length)),
 // m_entropy(length), 
-// m_adjacency(view.m_adjacency),
-// m_weights(view.m_weights)
+// constraints(view.constraints),
+// weights(view.weights)
 // {}
 
 
-WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints, bool periodic)
+WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints, unsigned int seed, bool periodic)
 :m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
 m_entropy(size),
-m_adjacency(constraints),
-m_weights(weights),
+constraints(constraints),
+weights(weights),
+labels(),
+m_rng(seed),
 m_periodic(periodic)
 {}
 
@@ -39,25 +43,8 @@ WFC::~WFC() {
 
 void WFC::init(){
     for(auto& c : *m_wave){
-        c.resize(m_weights.size(), 1);
+        c.resize(weights.size(), 1);
     }
-}
-
-
-// void WFC::init(std::size_t id, bool value){
-//     for(auto& c : *m_wave){
-//         c[id] = value;
-//     }
-// }
-
-
-AdjacencyConstraints& WFC::get_constraints(){
-    return m_adjacency;
-}
-
-
-TileWeights& WFC::get_weights(){
-    return m_weights;
 }
 
 
@@ -82,7 +69,7 @@ std::optional<Vec3u> WFC::select_cell(){
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
     for(std::size_t y = 0; y < m_wave->get_height(); y++){
     for(std::size_t z = 0; z < m_wave->get_depth(); z++){
-        double e = m_entropy.get_cell_entropy({x,y,z}, m_wave->get(x,y,z), m_weights);
+        double e = m_entropy.get_cell_entropy({x,y,z}, m_wave->get(x,y,z), weights);
         if(e > 0) {
             if(e < entr){
                 out.clear();
@@ -105,7 +92,7 @@ std::optional<Vec3u> WFC::select_cell(){
         return {};
     }else{
         m_status = AbstractWFC::RUNNING_STATUS;
-        return out[rand() % out.size()];
+        return out[m_rng.next_int() % out.size()];
     }
 }
 
@@ -117,15 +104,15 @@ void WFC::collapse_cell(const Vec3u& coords) {
     double total = 0;
     for(std::size_t i=0; i<cell.size(); i++){
         if(cell[i])
-            total += m_weights[i];
+            total += weights[i];
     }
 
-    auto r = rand() / (double) RAND_MAX;
+    auto r = m_rng.next_double();
     double acc = 0;
     auto selected = 0;
     for(std::size_t i=0; i<cell.size(); i++){
         if(cell[i]){
-            acc += m_weights[i] / total;
+            acc += weights[i] / total;
             if(r <= acc){
                 selected = i;
                 break;
@@ -139,7 +126,7 @@ void WFC::collapse_cell(const Vec3u& coords) {
 }
 
 
-static bool update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
+bool WFC::update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
     auto tmp = cell;
     CellState new_cell(cell.size());
     new_cell.reset();
@@ -157,12 +144,12 @@ void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir
     auto[f_x, f_y, f_z] = from;
     auto[t_x, t_y, t_z] = to;
     if(m_periodic){
-        if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), m_adjacency.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
+        if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
             queue.push(to);
             m_entropy.invalidate_cell(to);
         }
     }else if(m_wave->valid_coords(t_x, t_y, t_z)){
-        if(update_cell_state(m_wave->get(t_x, t_y, t_z), m_adjacency.get(dir), m_wave->get(f_x, f_y, f_z))){
+        if(update_cell_state(m_wave->get(t_x, t_y, t_z), constraints.get(dir), m_wave->get(f_x, f_y, f_z))){
             queue.push(to);
             m_entropy.invalidate_cell(to);
         }
@@ -198,7 +185,7 @@ bool WFC::step() {
     }
     collapse_cell(selected.value());
     propagate_constraints(selected.value());
-    stepped.emit(this, step_counter++, selected.value());
+    stepped.emit(this, m_step_counter++, selected.value());
     return false;
 }
 
