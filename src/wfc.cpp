@@ -11,7 +11,7 @@ WFC::WFC(const Vec3u& size, const TileWeights& weights, unsigned int seed, bool 
 m_entropy(size),
 constraints(weights.size(), true),
 weights(weights),
-labels(),
+labels(weights.size()),
 m_rng(seed),
 m_periodic(periodic)
 {}
@@ -30,7 +30,7 @@ WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstrain
 m_entropy(size),
 constraints(constraints),
 weights(weights),
-labels(),
+labels(weights.size()),
 m_rng(seed),
 m_periodic(periodic)
 {}
