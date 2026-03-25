@@ -44,8 +44,7 @@ public:
     bool step();
     bool run();
 
-    Array3D<std::size_t> get_result();
-    WaveState& get_wave();
+    Array3D<unsigned int> get_result();
 
     ~WFC() override;
 

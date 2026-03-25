@@ -49,17 +49,12 @@ void WFC::init(){
 }
 
 
-Array3D<std::size_t> WFC::get_result() {
-    Array3D<std::size_t> out(m_wave->get_width(), m_wave->get_height(), m_wave->get_depth());
+Array3D<unsigned int> WFC::get_result() {
+    Array3D<unsigned int> out(m_wave->get_width(), m_wave->get_height(), m_wave->get_depth());
     for(std::size_t i = 0; i < m_wave->size(); i++) {
         out.get_linear(i) = m_wave->get_linear(i).find_first();
     }
     return out;
-}
-
-
-WaveState& WFC::get_wave() {
-    return *m_wave;
 }
 
 
@@ -195,7 +190,7 @@ bool WFC::run() {
     while(true){
         if(step()){
             finished.emit(this);
-            return m_status == AbstractWFC::CONTRADICTION_STATUS;
+            return m_status != AbstractWFC::CONTRADICTION_STATUS;
         };
     }
 }
