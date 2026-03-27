@@ -47,12 +47,57 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& a)
 
 template <typename Block, typename Allocator>
 std::ostream& operator<<(std::ostream& os, const boost::dynamic_bitset<Block, Allocator>& bs) {
-    // print in "human" order: index 0 → N-1 (left to right)
     for (std::size_t i = 0; i < bs.size(); ++i) {
         os << bs[i];
     }
     return os;
 }
+
+
+template<typename T>
+struct Vec3{
+    T x,y,z;
+
+    Vec3<T> operator+(const Vec3<T>& other) const {
+        return {x+other.x, y+other.y, z+other.z};
+    }
+
+    Vec3<T> operator-(const Vec3<T>& other) const {
+        return {x-other.x, y-other.y, z-other.z};
+    }
+
+    Vec3<T> operator*(const T& scalar) const {
+        return {x*scalar, y*scalar, z*scalar};
+    }
+
+    Vec3<T> operator/(const T& scalar) const {
+        return {x/scalar, y/scalar, z/scalar};
+    }
+
+    void operator+=(const Vec3<T>& other) {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+    }
+
+    void operator-=(const Vec3<T>& other) {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+    }
+
+    void operator*=(const T& scalar) {
+        x *= scalar;
+        y *= scalar;
+        z *= scalar;
+    }
+
+    void operator/=(const T& scalar) {
+        x /= scalar;
+        y /= scalar;
+        z /= scalar;
+    }
+};
 
 }
 

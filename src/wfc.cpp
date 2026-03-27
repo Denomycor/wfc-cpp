@@ -41,11 +41,23 @@ WFC::~WFC() {
 }
 
 
+void WFC::clean_cache(){
+    m_entropy.invalidate_all();
+}
+
+
 void WFC::init(){
     for(auto& c : *m_wave){
         c.resize(weights.size(), 1);
     }
     m_status = Status::READY_STATUS;
+}
+
+
+void WFC::init_cell(const Vec3u& coords, unsigned int bit, bool value){
+    auto[x,y,z] = coords;
+    m_wave->get(x, y, z).reset();
+    m_wave->get(x,y,z)[bit] = value;
 }
 
 
@@ -193,6 +205,21 @@ bool WFC::run() {
             return m_status != AbstractWFC::CONTRADICTION_STATUS;
         };
     }
+}
+
+
+Vec3u WFC::get_size(){
+    return { m_wave->get_width(), m_wave->get_height(), m_wave->get_depth() };
+}
+
+
+const WaveState& WFC::get_wave(){
+    return *m_wave;
+}
+
+
+void WFC::set_wave(const WaveState& wave){
+    *m_wave = wave;
 }
 
 }

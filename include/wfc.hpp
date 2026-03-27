@@ -39,12 +39,18 @@ public:
     void collapse_cell(const Vec3u& coords);
     void propagate_constraints(const Vec3u& coords);
 
+    void clean_cache();
     void init();
+    void init_cell(const Vec3u& coords, unsigned int bit, bool value);
 
     bool step();
     bool run();
 
     Array3D<unsigned int> get_result();
+    Vec3u get_size();
+    const WaveState& get_wave();
+
+    void set_wave(const WaveState& wave);
 
     ~WFC() override;
 
