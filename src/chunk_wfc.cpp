@@ -177,6 +177,11 @@ std::optional<Array3D<unsigned int>> ChunkWFC::get_chunk(const Vec3i& coords){
 }
 
 
+ChunkWFC::~ChunkWFC(){
+
+}
+
+
 DataChunkWFC::DataChunkWFC(const std::filesystem::path& index_path, const std::filesystem::path& chunks_path, const Vec3u& chunk_size)
 :m_mutex(),
 m_index_path(index_path),
