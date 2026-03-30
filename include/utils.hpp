@@ -54,50 +54,129 @@ std::ostream& operator<<(std::ostream& os, const boost::dynamic_bitset<Block, Al
 }
 
 
-template<typename T>
-struct Vec3{
-    T x,y,z;
+template<typename T, typename Derived>
+struct Vec3 {
+    T x, y, z;
 
-    Vec3<T> operator+(const Vec3<T>& other) const {
-        return {x+other.x, y+other.y, z+other.z};
+    Vec3() = default;
+
+    Vec3(T px, T py, T pz)
+        : x(px), y(py), z(pz) 
+    {}
+
+    operator std::tuple<T, T, T>() const {
+        return { x, y, z };
     }
 
-    Vec3<T> operator-(const Vec3<T>& other) const {
-        return {x-other.x, y-other.y, z-other.z};
+    bool operator==(const Derived& other) const noexcept {
+        return x == other.x && y == other.y && z == other.z;
     }
 
-    Vec3<T> operator*(const T& scalar) const {
-        return {x*scalar, y*scalar, z*scalar};
+    bool operator!=(const Derived& other) const noexcept {
+        return !(*static_cast<const Derived*>(this) == other);
     }
 
-    Vec3<T> operator/(const T& scalar) const {
-        return {x/scalar, y/scalar, z/scalar};
+    Derived operator+(const Derived& other) const {
+        return Derived{
+            x + other.x,
+            y + other.y,
+            z + other.z
+        };
     }
 
-    void operator+=(const Vec3<T>& other) {
+    Derived operator-(const Derived& other) const {
+        return Derived{
+            x - other.x,
+            y - other.y,
+            z - other.z
+        };
+    }
+
+    Derived operator*(T scalar) const {
+        return Derived{
+            x * scalar,
+            y * scalar,
+            z * scalar
+        };
+    }
+
+    Derived operator/(T scalar) const {
+        return Derived{
+            x / scalar,
+            y / scalar,
+            z / scalar
+        };
+    }
+
+    Derived& operator+=(const Derived& other) {
         x += other.x;
         y += other.y;
         z += other.z;
+        return static_cast<Derived&>(*this);
     }
 
-    void operator-=(const Vec3<T>& other) {
+    Derived& operator-=(const Derived& other) {
         x -= other.x;
         y -= other.y;
         z -= other.z;
+        return static_cast<Derived&>(*this);
     }
 
-    void operator*=(const T& scalar) {
+    Derived& operator*=(T scalar) {
         x *= scalar;
         y *= scalar;
         z *= scalar;
+        return static_cast<Derived&>(*this);
     }
 
-    void operator/=(const T& scalar) {
+    Derived& operator/=(T scalar) {
         x /= scalar;
         y /= scalar;
         z /= scalar;
+        return static_cast<Derived&>(*this);
     }
 };
+
+struct Vec3i;
+
+struct Vec3u : public Vec3<unsigned int, Vec3u> {
+    using Vec3<unsigned int, Vec3u>::Vec3;
+
+    operator Vec3i() const;
+};
+
+struct Vec3i : public Vec3<int, Vec3i> {
+    using Vec3<int, Vec3i>::Vec3;
+
+    Vec3u wrapi(const Vec3u& val) const;
+    Vec3u to_vec3u() const;
+    explicit operator Vec3u() const;
+};
+
+
+struct Vec3Hash {
+    template<typename T>
+    static std::size_t h(T v) {
+        if constexpr (std::is_signed_v<T>) {
+            return std::hash<std::int64_t>{}(static_cast<std::int64_t>(v));
+        } else {
+            return std::hash<std::uint64_t>{}(static_cast<std::uint64_t>(v));
+        }
+    }
+
+    std::size_t operator()(const Vec3i& v) const noexcept ;
+
+};
+
+namespace Vec3Constants {
+    inline const Vec3i UP { 0, -1, 0 };
+    inline const Vec3i DOWN { 0, 1, 0 };
+    inline const Vec3i LEFT { -1, 0, 0 };
+    inline const Vec3i RIGHT { 1, 0, 0 };
+    inline const Vec3i FRONT { 0, 0, 1 };
+    inline const Vec3i BACK { 0, 0, -1 };
+}
+
 
 }
 

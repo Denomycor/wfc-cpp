@@ -7,7 +7,7 @@ namespace wfc {
 
 
 WFC::WFC(const Vec3u& size, const TileWeights& weights, unsigned int seed, bool periodic)
-:m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
+:m_wave(new Array3D<CellState>(size.x, size.y, size.z)),
 m_entropy(size),
 constraints(weights.size(), true),
 weights(weights),
@@ -26,7 +26,7 @@ m_periodic(periodic)
 
 
 WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints, unsigned int seed, bool periodic)
-:m_wave(new Array3D<CellState>(std::get<0>(size), std::get<1>(size), std::get<2>(size))),
+:m_wave(new Array3D<CellState>(size.x, size.y, size.z)),
 m_entropy(size),
 constraints(constraints),
 weights(weights),
@@ -71,13 +71,13 @@ Array3D<unsigned int> WFC::get_result() {
 
 
 std::optional<Vec3u> WFC::select_cell(){
-    std::vector<std::tuple<int, int, int>> out{{0,0,0}};
+    std::vector<Vec3u> out{{0,0,0}};
     double entr = DBL_MAX;
 
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
     for(std::size_t y = 0; y < m_wave->get_height(); y++){
     for(std::size_t z = 0; z < m_wave->get_depth(); z++){
-        double e = m_entropy.get_cell_entropy({x,y,z}, m_wave->get(x,y,z), weights);
+        double e = m_entropy.get_cell_entropy(Vec3u(x,y,z), m_wave->get(x,y,z), weights);
         if(e > 0) {
             if(e < entr){
                 out.clear();
@@ -151,35 +151,38 @@ bool WFC::update_cell_state(CellState& cell, const TileConstraints& constraints,
 void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue) {
     auto[f_x, f_y, f_z] = from;
     auto[t_x, t_y, t_z] = to;
+    Vec3u dim{
+        static_cast<unsigned int>(m_wave->get_width()), 
+        static_cast<unsigned int>(m_wave->get_height()), 
+        static_cast<unsigned int>(m_wave->get_depth())
+    };
     if(m_periodic){
         if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
             queue.push(to);
-            m_entropy.invalidate_cell(to);
+            m_entropy.invalidate_cell(to.wrapi(dim));
         }
     }else if(m_wave->valid_coords(t_x, t_y, t_z)){
         if(update_cell_state(m_wave->get(t_x, t_y, t_z), constraints.get(dir), m_wave->get(f_x, f_y, f_z))){
             queue.push(to);
-            m_entropy.invalidate_cell(to);
+            m_entropy.invalidate_cell(to.to_vec3u());
         }
     }
 }
 
 
 void WFC::propagate_constraints(const Vec3u& coords){
-    auto[x, y, z] = coords;
     std::queue<Vec3i> queue;
-    queue.push({x,y,z});
+    queue.push(static_cast<Vec3i>(coords));
 
     while(!queue.empty()){
         auto current = queue.front();
-        auto[x, y, z] = current;
 
-        propagate_direction(current, {x,y-1,z}, Directions::UP, queue);
-        propagate_direction(current, {x,y+1,z}, Directions::DOWN, queue);
-        propagate_direction(current, {x-1,y,z}, Directions::LEFT, queue);
-        propagate_direction(current, {x+1,y,z}, Directions::RIGHT, queue);
-        propagate_direction(current, {x,y,z-1}, Directions::BACK, queue);
-        propagate_direction(current, {x,y,z+1}, Directions::FRONT, queue);
+        propagate_direction(current, current + Vec3Constants::UP, Directions::UP, queue);
+        propagate_direction(current, current + Vec3Constants::DOWN, Directions::DOWN, queue);
+        propagate_direction(current, current + Vec3Constants::LEFT, Directions::LEFT, queue);
+        propagate_direction(current, current + Vec3Constants::RIGHT, Directions::RIGHT, queue);
+        propagate_direction(current, current + Vec3Constants::BACK, Directions::BACK, queue);
+        propagate_direction(current, current + Vec3Constants::FRONT, Directions::FRONT, queue);
 
         queue.pop();
     }
@@ -209,7 +212,7 @@ bool WFC::run() {
 
 
 Vec3u WFC::get_size(){
-    return { m_wave->get_width(), m_wave->get_height(), m_wave->get_depth() };
+    return Vec3u(m_wave->get_width(), m_wave->get_height(), m_wave->get_depth());
 }
 
 

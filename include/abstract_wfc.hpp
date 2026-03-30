@@ -1,9 +1,9 @@
 #pragma once
 #include <array>
 #include <cstddef>
-#include <tuple>
 #include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <vector>
+#include "utils.hpp"
 #include "array3d.hpp"
 
 
@@ -32,8 +32,6 @@ enum Variants2D {
 
 
 // Avoid lengthy type declarations
-using Vec3i = std::tuple<int,int,int>;
-using Vec3u = std::tuple<std::size_t,std::size_t,std::size_t>;
 using CellState = boost::dynamic_bitset<>;
 using WaveState = Array3D<CellState>;
 using TileWeights = std::vector<double>;

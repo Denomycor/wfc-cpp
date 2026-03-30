@@ -118,7 +118,7 @@ template<typename T>
 class Array3D : public AbstractArray3D<T> {
 private:
     std::size_t width, height, depth;
-    std::vector<T> data;
+    std::vector<T> m_data;
 
 public:
     inline std::size_t index(std::size_t x, std::size_t y, std::size_t z) const override {
@@ -129,44 +129,67 @@ public:
         return wrapped(0, depth, z) * width * height + wrapped(0, height, y) * width + wrapped(0, width, x);
     }
 
+    Array3D()
+    :width(2), height(2), depth(1), m_data(4)
+    {}
+
     Array3D(std::size_t w, std::size_t h, std::size_t d)
-        : width(w), height(h), depth(d), data(w * h * d)
+        : width(w), height(h), depth(d), m_data(w * h * d)
     {}
 
     Array3D(std::size_t w, std::size_t h, std::size_t d, const T& init_value)
-        : width(w), height(h), depth(d), data(w * h * d, init_value)
+        : width(w), height(h), depth(d), m_data(w * h * d, init_value)
     {}
 
     T& get(std::size_t x, std::size_t y, std::size_t z) override {
         assert(x < width && y < height && z < depth);
-        return data[index(x,y,z)];
+        return m_data[index(x,y,z)];
     }
 
     T& get_wrapped(int x, int y, int z) override {
-        return data[wrapped_index(x,y,z)];
+        return m_data[wrapped_index(x,y,z)];
     }
 
     T& get_linear(std::size_t i) override {
-        return data[i];
+        return m_data[i];
     }
 
     const T& get(std::size_t x, std::size_t y, std::size_t z) const override {
         assert(x < width && y < height && z < depth);
-        return data[index(x,y,z)];
+        return m_data[index(x,y,z)];
     }
 
     const T& wrapped_get(int x, int y, int z) const override {
-        return data[wrapped_index(x,y,z)];
+        return m_data[wrapped_index(x,y,z)];
     }
 
     const T& get_linear(std::size_t i) const override {
-        return data[i];
+        return m_data[i];
     }
 
     void set(std::size_t x, std::size_t y, std::size_t z, const T& value) override
     {
         assert(x < width && y < height && z < depth);
-        data[index(x,y,z)] = value;
+        m_data[index(x,y,z)] = value;
+    }
+
+    void resize(std::size_t w, std::size_t h, std::size_t d){
+        width = w;
+        height = h;
+        depth = d;
+        m_data.resize(w*h*d);
+    }
+
+    T* data(){
+        return m_data.data();
+    }
+
+    const T* data() const{
+        return m_data.data();
+    }
+
+    std::size_t byte_size() const {
+        return m_data.size() * sizeof(T);
     }
 
     bool valid_coords(int x, int y, int z, bool wrap = false) const override {
@@ -179,7 +202,7 @@ public:
     std::size_t get_width() const override { return width; }
     std::size_t get_height() const override { return height; }
     std::size_t get_depth() const override { return depth; }
-    std::size_t size() const override { return data.size(); }
+    std::size_t size() const override { return m_data.size(); }
 
 };
 

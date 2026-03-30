@@ -31,7 +31,7 @@ private:
 
     template<typename T, typename = std::enable_if<std::is_invocable_v<T, const Args&...>>>
     std::function<callable_t> make_one_shot(int key, T&& callable) {
-        return [=](const Args&... args){
+        return [this, key, callable = std::forward<T>(callable)](const Args&... args){
             callable(args...);
             disconnect(key);
         };
@@ -70,7 +70,8 @@ public:
     }
 
     void emit(const Args&... args) {
-        for (const auto&[_,f] : m_subscribers) {
+        auto subscribers = m_subscribers;
+        for (const auto& [_, f] : subscribers) {
             f(args...);
         }
     }

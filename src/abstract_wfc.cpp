@@ -23,7 +23,7 @@ Directions get_opposite(Directions dir) {
 
 
 EntropyMemory::EntropyMemory(const Vec3u& size)
-:m_memory(std::get<0>(size), std::get<1>(size), std::get<2>(size))
+:m_memory(size.x, size.y, size.z)
 {}
 
 
