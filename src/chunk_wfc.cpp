@@ -1,5 +1,6 @@
 #include "chunk_wfc.hpp"
 #include "abstract_wfc.hpp"
+#include "utils.hpp"
 #include "wfc.hpp"
 #include <cstdint>
 #include <fstream>
@@ -35,62 +36,62 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) {
     auto size = wfc.get_size();
     switch (d) {
     case UP: {
-        auto result = reader({coords.x, coords.y + 1, coords.z});
-        if (result.has_value()) {
-            for (unsigned int x = 0; x < size.x; x++) {
-            for (unsigned int z = 0; z < size.z; z++) {
-                Vec3u coord = {x, size.y - 1, z};
-                wfc.init_cell(coord, result.value().get(x, 0, z), true);
-            }}
-        }
-        break;
-    } case DOWN: {
-        auto result = reader({coords.x, coords.y - 1, coords.z});
+        auto result = reader(coords + Vec3Constants::UP);
         if (result.has_value()) {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {x, 0, z};
-                wfc.init_cell(coord, result.value().get(x, size.y - 1, z), true);
+                wfc.init_cell(coord, result->get(x, size.y - 1, z), true);
+            }}
+        }
+        break;
+    } case DOWN: {
+        auto result = reader(coords + Vec3Constants::DOWN);
+        if (result.has_value()) {
+            for (unsigned int x = 0; x < size.x; x++) {
+            for (unsigned int z = 0; z < size.z; z++) {
+                Vec3u coord = {x, size.y - 1, z};
+                wfc.init_cell(coord, result->get(x, 0, z), true);
             }}
         }
         break;
     } case LEFT: {
-        auto result = reader({coords.x - 1, coords.y, coords.z});
+        auto result = reader(coords + Vec3Constants::LEFT);
         if (result.has_value()) {
             for (unsigned int y = 0; y < size.y; y++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {0, y, z};
-                wfc.init_cell(coord, result.value().get(size.x - 1, y, z), true);
+                wfc.init_cell(coord, result->get(size.x - 1, y, z), true);
             }}
         }
         break;
     } case RIGHT: {
-        auto result = reader({coords.x + 1, coords.y, coords.z});
+        auto result = reader(coords + Vec3Constants::RIGHT);
         if (result.has_value()) {
             for (unsigned int y = 0; y < size.y; y++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {size.x - 1, y, z};
-                wfc.init_cell(coord, result.value().get(0, y, z), true);
+                wfc.init_cell(coord, result->get(0, y, z), true);
             }}
         }
         break;
     } case FRONT: {
-        auto result = reader({coords.x, coords.y, coords.z + 1});
+        auto result = reader(coords + Vec3Constants::FRONT);
         if (result.has_value()) {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int y = 0; y < size.y; y++) {
                 Vec3u coord = {x, y, size.z - 1};
-                wfc.init_cell(coord, result.value().get(x, y, 0), true);
+                wfc.init_cell(coord, result->get(x, y, 0), true);
             }}
         }
         break;
     } case BACK: {
-        auto result = reader({coords.x, coords.y, coords.z - 1});
+        auto result = reader(coords +  Vec3Constants::BACK);
         if (result.has_value()) {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int y = 0; y < size.y; y++) {
                 Vec3u coord = {x, y, 0};
-                wfc.init_cell(coord, result.value().get(x, y, size.z - 1), true);
+                wfc.init_cell(coord, result->get(x, y, size.z - 1), true);
             }}
         }
         break;
@@ -147,7 +148,9 @@ std::optional<Array3D<unsigned int>> ChunkWFC::get_chunk_signal(const Vec3i& coo
     }else{
         WFC wfc(m_chunk_size, weights, constraints, m_seed, false);
         wfc.init();
-        for(unsigned int d = 0; d < Directions::COUNT; d++)   {
+        // Avoid 3D neighboords if this is 2D
+        unsigned int count = Directions::COUNT + (m_chunk_size.z == 1 ? - 2 : 0); 
+        for(unsigned int d = 0; d < count; d++)   {
             init_margins(wfc, coords, static_cast<Directions>(d));
         }
         auto backup_wave = wfc.get_wave();
