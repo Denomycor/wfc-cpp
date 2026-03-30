@@ -104,7 +104,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) {
 void ChunkWFC::generate_range(const Vec3i& from, const Vec3i& to){
     auto[fx, fy, fz] = from;
     auto[tx, ty, tz] = to;
-    std::vector<std::pair<Vec3i,std::future<std::optional<Array3D<unsigned int>>>>> thread_results((tx-fx)*(ty-fy)*(tz-fz)/2);
+    std::vector<std::pair<Vec3i,std::future<std::optional<Array3D<unsigned int>>>>> thread_results;
+    thread_results.reserve((tx-fx)*(ty-fy)*(tz-fz)/2);
 
     for(int x = fx; x < tx; x++){
     for(int y = fy; y < ty; y++){
