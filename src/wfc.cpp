@@ -1,9 +1,11 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
+#include "utils.hpp"
 #include <cassert>
 #include <cfloat>
 
 namespace wfc {
+
 
 
 WFC::WFC(const Vec3u& size, const TileWeights& weights, unsigned int seed, bool periodic)
@@ -41,6 +43,18 @@ WFC::~WFC() {
 }
 
 
+bool WFC::check_contradiction(){
+    if(m_status == CONTRADICTION_STATUS){
+        return true;
+    }else{
+        for(auto& c : *m_wave){
+            if(c.none()) return true;
+        }
+        return false;
+    }
+}
+
+
 void WFC::clean_cache(){
     m_entropy.invalidate_all();
 }
@@ -49,15 +63,9 @@ void WFC::clean_cache(){
 void WFC::init(){
     for(auto& c : *m_wave){
         c.resize(weights.size(), 1);
+        c.set();
     }
     m_status = Status::READY_STATUS;
-}
-
-
-void WFC::init_cell(const Vec3u& coords, unsigned int bit, bool value){
-    auto[x,y,z] = coords;
-    m_wave->get(x, y, z).reset();
-    m_wave->get(x,y,z)[bit] = value;
 }
 
 
@@ -71,37 +79,43 @@ Array3D<unsigned int> WFC::get_result() {
 
 
 std::optional<Vec3u> WFC::select_cell(){
-    std::vector<Vec3u> out{{0,0,0}};
-    double entr = DBL_MAX;
+    std::vector<Vec3u> out;
+    double min_entropy = DBL_MAX;
 
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
     for(std::size_t y = 0; y < m_wave->get_height(); y++){
     for(std::size_t z = 0; z < m_wave->get_depth(); z++){
         double e = m_entropy.get_cell_entropy(Vec3u(x,y,z), m_wave->get(x,y,z), weights);
-        if(e > 0) {
-            if(e < entr){
+        if(e > EPS) {
+            if (is_approx(e, min_entropy)) {
+                out.emplace_back(x,y,z);
+            } else if(e < min_entropy){
                 out.clear();
                 out.emplace_back(x,y,z);   
-                entr = e;
-            } else if (e == entr) {
-            // this comparison of doubles is ok because cells with same tile-weight distribution should return the same exact entropy value
-                out.emplace_back(x,y,z);
+                min_entropy = e;
             }
-        }else if(e < 0){
-        // get_cell_entropy returns < 0 if a cell has 0 tiles possible
+        }else if(is_approx(e, -1.0)){
             m_status = AbstractWFC::CONTRADICTION_STATUS;
             return {};
         }
     }}}
 
-    if(entr == DBL_MAX) {
-    //All cells have collapsed get_cell_entropy always returned 0 and entr is unchanged since initialized
+    if(is_approx(min_entropy, DBL_MAX)) {
         m_status = AbstractWFC::FINISHED_STATUS;
         return {};
     }else{
         m_status = AbstractWFC::RUNNING_STATUS;
         return out[m_rng.next_int() % out.size()];
     }
+}
+
+
+void WFC::collapse_cell(const Vec3u& coords, unsigned int bit) {
+    auto[x,y,z] = coords;
+    auto& cell = m_wave->get(x, y, z);
+    cell.reset();
+    cell[bit] = true; 
+    m_entropy.invalidate_cell(coords);
 }
 
 

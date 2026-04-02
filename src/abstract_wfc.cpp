@@ -3,9 +3,11 @@
 #include <boost/dynamic_bitset.hpp>
 #include <cmath>
 #include <string>
+#include <utility>
 
 
 namespace wfc {
+
 
 Directions get_opposite(Directions dir) {
     switch (dir) {
@@ -23,31 +25,32 @@ Directions get_opposite(Directions dir) {
 
 
 EntropyMemory::EntropyMemory(const Vec3u& size)
-:m_memory(size.x, size.y, size.z)
+:m_memory(size.x, size.y, size.z, std::make_pair(false, 0.0))
 {}
 
 
 double EntropyMemory::get_cell_entropy(const Vec3u& cell, const CellState& state, const TileWeights& weights){
     auto[x,y,z] = cell;
+    assert(weights.size() == state.size());
     if(m_memory.get(x,y,z).first){
         return m_memory.get(x,y,z).second;
+
+    }else if (state.none()){
+        return -1;
+
     }else{
         double w_sum = 0;
         double sum_sum = 0;
         
         for(std::size_t i=0; i<state.size(); i++){
-            if(state[i]){
+            if(state[i] && weights[i] > 0){
                 w_sum += weights[i];
                 sum_sum += weights[i] * log(weights[i]);
             }
         }
 
-        if (w_sum == 0){
-        // All tiles were false -> contradiction
-            return -1;
-        }
         double value = log(w_sum) - (sum_sum/w_sum);
-        m_memory.set(x, y, z, std::pair<bool, double>{true, value});
+        m_memory.set(x, y, z, std::make_pair(true, value));
         return value;
     }
 }

@@ -14,8 +14,13 @@ except Exception:
 if not env.get("COMPILATIONDB"):
     env.Tool("compilation_db")
 
-env.Append(CXXFLAGS=["-Wall"])
+env.Append(CXXFLAGS=["-Wall", "-O2"])
 env.Append(CPPPATH=["include"])
+
+# env.Append(CXXFLAGS=[
+#     "-O0",
+#     "-fno-omit-frame-pointer"
+# ])
 
 sources = Glob("src/*.cpp")
 

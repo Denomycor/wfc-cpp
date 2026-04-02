@@ -1,9 +1,16 @@
 #include "utils.hpp"
+#include <cstdlib>
+
 
 namespace wfc {
 
 int wrapped(int lower, int upper, int x){
     return x % (upper - lower) + lower;
+}
+
+
+bool is_approx(double x, double y, double error) {
+    return std::abs(x - y) < error;
 }
 
 

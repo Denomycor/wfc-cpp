@@ -3,12 +3,18 @@
 #include "array3d.hpp"
 #include <boost/dynamic_bitset.hpp>
 #include <iostream>
+#include <string>
 #include <vector>
 #include <array>
 
+
 namespace wfc {
 
+constexpr double EPS = 1e-9;
+
 int wrapped(int lower, int upper, int x);
+bool is_approx(double x, double y, double error = EPS);
+
 
 template<typename T>
 void print_array2d(const AbstractArray3D<T>& obj){
@@ -64,6 +70,10 @@ struct Vec3 {
         : x(px), y(py), z(pz) 
     {}
 
+    Vec3(const std::tuple<T,T,T>& tuple)
+        :x(std::get<0>(tuple)), y(std::get<1>(tuple)), z(std::get<2>(tuple))
+    {}
+
     operator std::tuple<T, T, T>() const {
         return { x, y, z };
     }
@@ -74,6 +84,14 @@ struct Vec3 {
 
     bool operator!=(const Derived& other) const noexcept {
         return !(*static_cast<const Derived*>(this) == other);
+    }
+
+    T volume() const {
+        return x * y * z;
+    }
+
+    std::string to_string() const {
+        return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")";
     }
 
     Derived operator+(const Derived& other) const {
@@ -136,6 +154,15 @@ struct Vec3 {
         return static_cast<Derived&>(*this);
     }
 };
+
+
+template<typename T, typename Derived>
+std::ostream& operator<<(std::ostream& os, const Vec3<T, Derived>& v)
+{
+    os << v.to_string();
+    return os;
+}
+
 
 struct Vec3i;
 

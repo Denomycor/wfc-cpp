@@ -5,6 +5,9 @@
 #include <vector>
 #include <utility>
 
+#include <iostream>
+#include <boost/stacktrace.hpp>
+
 namespace wfc{
 
 int wrapped(int lower, int upper, int x);
@@ -95,6 +98,10 @@ public:
     virtual std::size_t get_height() const = 0;
     virtual std::size_t get_depth() const = 0;
     virtual std::size_t size() const = 0;
+
+    std::tuple<std::size_t, std::size_t, std::size_t> get_dimensions() const {
+        return {get_width(), get_height(), get_depth()};
+    }
 
     iterator begin() {
         return iterator(this,0);

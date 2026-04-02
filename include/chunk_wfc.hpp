@@ -16,7 +16,8 @@ namespace wfc {
 class ChunkWFC {
 private:
     Vec3u m_chunk_size;
-    unsigned int m_seed, m_max_attempts;
+    mutable Random m_rand; 
+    unsigned int m_max_attempts;
 
 public:
     using Writer_T = std::function<void(const Vec3i&, const Array3D<unsigned int>&)>;
@@ -29,19 +30,20 @@ public:
 private:
     Writer_T writer;
     Reader_T reader;
-    ThreadPool pool;
+    mutable ThreadPool pool;
 
-    void init_margins(WFC& wfc, const Vec3i& coords, Directions d);
-    std::optional<Array3D<unsigned int>> get_chunk_signal(const Vec3i& coords, bool signal);
+    void init_margins(WFC& wfc, const Vec3i& coords, Directions d) const;
+    std::optional<Array3D<unsigned int>> get_chunk_signal(const Vec3i& coords, bool signal) const;
 
 public:
-    Signal<Vec3i,Array3D<unsigned int>> completed_chunk;
+    Signal<Vec3i,Array3D<unsigned int>> successful_chunk;
+    Signal<Vec3i> failed_chunk;
 
     ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const Writer_T& p_writer, const Reader_T& p_reader, unsigned int max_attempts = 4, unsigned int seed = 0);
     ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const AdjacencyConstraints& constraints, const Writer_T& p_writer, const Reader_T& p_reader, unsigned int max_attempts = 4, unsigned int seed = 0);
 
-    void generate_range(const Vec3i& from, const Vec3i& to);
-    std::optional<Array3D<unsigned int>> get_chunk(const Vec3i& coords);
+    void generate_range(const Vec3i& from, const Vec3i& to) const;
+    std::optional<Array3D<unsigned int>> get_chunk(const Vec3i& coords) const;
 
     ~ChunkWFC();
 
@@ -52,7 +54,7 @@ class DataChunkWFC {
 private:
     std::shared_mutex m_mutex;
     std::filesystem::path m_index_path, m_chunks_path;
-    std::unordered_map<Vec3i, u_int32_t, Vec3Hash> m_index;
+    std::unordered_map<Vec3i, uint32_t, Vec3Hash> m_index;
     Vec3u m_chunk_size;
     bool m_dirty = false;
     

@@ -37,11 +37,13 @@ public:
 
     std::optional<Vec3u> select_cell();
     void collapse_cell(const Vec3u& coords);
+    void collapse_cell(const Vec3u& coords, unsigned int bit);
     void propagate_constraints(const Vec3u& coords);
+
+    bool check_contradiction();
 
     void clean_cache();
     void init();
-    void init_cell(const Vec3u& coords, unsigned int bit, bool value);
 
     bool step();
     bool run();

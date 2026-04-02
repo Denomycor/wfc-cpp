@@ -69,7 +69,7 @@ public:
         }
     }
 
-    void emit(const Args&... args) {
+    void emit(const Args&... args) const {
         auto subscribers = m_subscribers;
         for (const auto& [_, f] : subscribers) {
             f(args...);
