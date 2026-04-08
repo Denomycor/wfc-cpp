@@ -36,6 +36,7 @@ pool()
 void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
     auto size = wfc.get_size();
     assert(wfc.get_result().size() == size.volume());
+    CellState state(weights.size());
     switch (d) {
     case UP: {
         auto result = reader(coords + Vec3Constants::UP);
@@ -44,8 +45,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {x, 0, z};
-                wfc.collapse_cell(coord, result->get(x, size.y - 1, z));
-                wfc.propagate_constraints(coord);
+                state[result->get(x, size.y - 1, z)] = true;
+                wfc.propagate_exterior(coord, get_opposite(UP), state);
             }}
         }
         break;
@@ -56,8 +57,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {x, size.y - 1, z};
-                wfc.collapse_cell(coord, result->get(x, 0, z));
-                wfc.propagate_constraints(coord);
+                state[result->get(x, 0, z)] = true;
+                wfc.propagate_exterior(coord, get_opposite(DOWN), state);
             }}
         }
         break;
@@ -68,8 +69,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int y = 0; y < size.y; y++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {0, y, z};
-                wfc.collapse_cell(coord, result->get(size.x - 1, y, z));
-                wfc.propagate_constraints(coord);
+                state[result->get(size.x - 1, y, z)] = true;
+                wfc.propagate_exterior(coord, get_opposite(LEFT), state);
             }}
         }
         break;
@@ -80,8 +81,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int y = 0; y < size.y; y++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {size.x - 1, y, z};
-                wfc.collapse_cell(coord, result->get(0, y, z));
-                wfc.propagate_constraints(coord);
+                state[result->get(0, y, z)] = true;
+                wfc.propagate_exterior(coord, get_opposite(RIGHT), state);
             }}
         }
         break;
@@ -92,8 +93,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int y = 0; y < size.y; y++) {
                 Vec3u coord = {x, y, size.z - 1};
-                wfc.collapse_cell(coord, result->get(x, y, 0));
-                wfc.propagate_constraints(coord);
+                state[result->get(x, y, 0)] = true;
+                wfc.propagate_exterior(coord, get_opposite(FRONT), state);
             }}
         }
         break;
@@ -104,8 +105,8 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int y = 0; y < size.y; y++) {
                 Vec3u coord = {x, y, 0};
-                wfc.collapse_cell(coord, result->get(x, y, size.z - 1));
-                wfc.propagate_constraints(coord);
+                state[result->get(x, y, size.z - 1)] = true;
+                wfc.propagate_exterior(coord, get_opposite(BACK), state);
             }}
         }
         break;
@@ -116,45 +117,42 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
 
 
 void ChunkWFC::generate_range(const Vec3i& from, const Vec3i& to) const {
-    auto[fx, fy, fz] = from;
-    auto[tx, ty, tz] = to;
-    std::vector<std::pair<Vec3i,std::future<std::optional<Array3D<unsigned int>>>>> thread_results;
-    thread_results.reserve((tx-fx)*(ty-fy)*(tz-fz)/2);
+    auto [fx, fy, fz] = from;
+    auto [tx, ty, tz] = to;
 
-    for(int x = fx; x < tx; x++){
-    for(int y = fy; y < ty; y++){
-    for(int z = fz; z < tz; z++){
-        if((x+y+z) & 1){
-            thread_results.emplace_back(Vec3i{x,y,z}, pool.enqueue([this,x,y,z](){return this->get_chunk_signal({x,y,z}, false);}));
-        }
-    }}}
+    int min_sum = fx + fy + fz;
+    int max_sum = (tx - 1) + (ty - 1) + (tz - 1);
 
-    for(auto& pair : thread_results){
-        auto&[coords, fut] = pair;
-        auto result = fut.get();
-        if(result.has_value()){
-            successful_chunk.emit(coords, result.value());
-        }else{
-            failed_chunk.emit(coords);
-        }
-    }
-    thread_results.clear();
+    std::vector<std::pair<Vec3i, std::future<std::optional<Array3D<unsigned int>>>>> thread_results;
 
-    for(int x = fx; x < tx; x++){
-    for(int y = fy; y < ty; y++){
-    for(int z = fz; z < tz; z++){
-        if(!((x+y+z) & 1)){
-            thread_results.emplace_back(Vec3i{x,y,z}, pool.enqueue([this,x,y,z](){return this->get_chunk_signal({x,y,z}, false);}));
-        }
-    }}}
+    for (int sum = min_sum; sum <= max_sum; sum++) {
+        thread_results.clear();
 
-    for(auto& pair : thread_results){
-        auto&[coords, fut] = pair;
-        auto result = fut.get();
-        if(result.has_value()){
-            successful_chunk.emit(coords, result.value());
-        }else{
-            failed_chunk.emit(coords);
+        for (int x = fx; x < tx; x++) {
+        for (int y = fy; y < ty; y++) {
+        for (int z = fz; z < tz; z++) {
+
+            if (x + y + z == sum) {
+                thread_results.emplace_back(
+                    Vec3i{x,y,z},
+                    pool.enqueue([this, x, y, z]() {
+                        return this->get_chunk_signal({x,y,z}, false);
+                    })
+                );
+            }
+
+        }}}
+
+        // Wait for this diagonal plane to finish
+        for (auto& pair : thread_results) {
+            auto& [coords, fut] = pair;
+            auto result = fut.get();
+
+            if (result.has_value()) {
+                successful_chunk.emit(coords, result.value());
+            } else {
+                failed_chunk.emit(coords);
+            }
         }
     }
 }

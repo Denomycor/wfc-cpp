@@ -3,6 +3,7 @@
 #include "array3d.hpp"
 #include "observer.hpp"
 #include "random.hpp"
+#include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <queue>
 
 namespace wfc {
@@ -39,6 +40,7 @@ public:
     void collapse_cell(const Vec3u& coords);
     void collapse_cell(const Vec3u& coords, unsigned int bit);
     void propagate_constraints(const Vec3u& coords);
+    void propagate_exterior(const Vec3u& coords, Directions dir, const CellState& state);
 
     bool check_contradiction();
 
@@ -57,6 +59,8 @@ public:
     ~WFC() override;
 
 };
+
+
 
 }
 

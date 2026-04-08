@@ -203,6 +203,13 @@ void WFC::propagate_constraints(const Vec3u& coords){
 }
 
 
+void WFC::propagate_exterior(const Vec3u& coords, Directions dir, const CellState& state){
+    auto[x,y,z] = coords;
+    update_cell_state(m_wave->get(x,y,z), constraints.get(dir), state);
+    propagate_constraints(coords);
+}
+
+
 bool WFC::step() {
     auto selected = select_cell();
     if(!selected.has_value()){
