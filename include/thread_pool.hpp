@@ -39,8 +39,8 @@ public:
         {
             std::unique_lock<std::mutex> lock(queue_mutex);
 
-            if (stop)
-                throw std::runtime_error("enqueue on stopped ThreadPool");
+            // if (stop)
+            //     throw std::runtime_error("enqueue on stopped ThreadPool");
 
             tasks.emplace([task]() { (*task)(); });
         }

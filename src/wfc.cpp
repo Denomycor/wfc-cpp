@@ -237,7 +237,7 @@ Vec3u WFC::get_size(){
 }
 
 
-const WaveState& WFC::get_wave(){
+const WaveState& WFC::get_wave() const {
     return *m_wave;
 }
 

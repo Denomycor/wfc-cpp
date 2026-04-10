@@ -36,6 +36,7 @@ public:
 
     std::optional<Array3D<unsigned int>> reader(const Vec3i& coords) override;
     void writer(const Vec3i& coords, const Array3D<unsigned int>& result) override;
+    const Vec3u& get_chunk_size() const;
 
     void flush_index();
 
@@ -69,6 +70,8 @@ public:
 
     void generate_range(const Vec3i& from, const Vec3i& to) const;
     std::optional<Array3D<unsigned int>> get_chunk(const Vec3i& coords) const;
+
+    const Vec3u& get_chunk_size() const;
 
     ~ChunkWFC();
 

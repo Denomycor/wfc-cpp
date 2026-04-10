@@ -198,8 +198,12 @@ std::optional<Array3D<unsigned int>> ChunkWFC::get_chunk(const Vec3i& coords) co
 }
 
 
-ChunkWFC::~ChunkWFC(){
+ChunkWFC::~ChunkWFC(){}
 
+
+
+const Vec3u& ChunkWFC::get_chunk_size() const{
+    return m_chunk_size;
 }
 
 
@@ -229,7 +233,8 @@ void DiskChunkWFCIO::load_index() {
     file.read(reinterpret_cast<char*>(&m_chunk_size.z), sizeof(m_chunk_size.z));
 
     if (!file) {
-        throw std::runtime_error("Failed to read index header (corrupt file)");
+        // throw std::runtime_error("Failed to read index header (corrupt file)");
+        return;
     }
 
     m_index.clear();
@@ -246,7 +251,8 @@ void DiskChunkWFCIO::load_index() {
         file.read(reinterpret_cast<char*>(&offset), sizeof(offset));
 
         if (!file) {
-            throw std::runtime_error("Corrupted index file (unexpected EOF)");
+            // throw std::runtime_error("Corrupted index file (unexpected EOF)");
+            return;
         }
 
         m_index.emplace(Vec3i{x, y, z}, offset);
@@ -257,7 +263,8 @@ void DiskChunkWFCIO::load_index() {
 void DiskChunkWFCIO::save_index() {
     std::ofstream file(m_index_path, std::ios::binary | std::ios::trunc);
     if (!file.is_open()) {
-        throw std::runtime_error("Failed to open index file for writing");
+        // throw std::runtime_error("Failed to open index file for writing");
+        return;
     }
 
     uint32_t index_size = static_cast<uint32_t>(m_index.size());
@@ -284,7 +291,8 @@ void DiskChunkWFCIO::save_index() {
     }
 
     if (!file) {
-        throw std::runtime_error("Failed while writing index file");
+        // throw std::runtime_error("Failed while writing index file");
+        return;
     }
 }
 
@@ -337,7 +345,8 @@ void DiskChunkWFCIO::writer(const Vec3i& coords, const Array3D<unsigned int>& re
     }
 
     if (!file.is_open()) {
-        throw std::runtime_error("Failed to open chunk file");
+        // throw std::runtime_error("Failed to open chunk file");
+        return;
     }
 
     uint32_t offset;
@@ -360,13 +369,19 @@ void DiskChunkWFCIO::writer(const Vec3i& coords, const Array3D<unsigned int>& re
     file.write(reinterpret_cast<const char*>(result.data()), result.byte_size());
 
     if (!file) {
-        throw std::runtime_error("Failed to write chunk data");
+        // throw std::runtime_error("Failed to write chunk data");
+        return;
     }
 }
 
 
 void DiskChunkWFCIO::flush_index(){
     if (m_dirty) save_index();
+}
+
+
+const Vec3u& DiskChunkWFCIO::get_chunk_size() const {
+    return m_chunk_size;
 }
 
 
