@@ -47,4 +47,5 @@ obj/
 compile_commands.json
 .cache/
 ignore/
+*.os
 
