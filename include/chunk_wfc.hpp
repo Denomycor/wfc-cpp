@@ -6,12 +6,42 @@
 #include "observer.hpp"
 #include "thread_pool.hpp"
 #include <filesystem>
-#include <functional>
+#include <memory>
 #include <shared_mutex>
 #include <sys/types.h>
 #include <unordered_map>
 
 namespace wfc {
+
+struct ChunkWFCIO {
+    virtual std::optional<Array3D<unsigned int>> reader(const Vec3i& coords) = 0;
+    virtual void writer(const Vec3i& coords, const Array3D<unsigned int>& result) = 0;
+    virtual ~ChunkWFCIO() = default;
+};
+
+
+class DiskChunkWFCIO : ChunkWFCIO {
+private:
+    std::shared_mutex m_mutex;
+    std::filesystem::path m_index_path, m_chunks_path;
+    std::unordered_map<Vec3i, uint32_t, Vec3Hash> m_index;
+    Vec3u m_chunk_size;
+    bool m_dirty = false;
+    
+    void load_index();
+    void save_index();
+
+public:
+    DiskChunkWFCIO(const std::filesystem::path& index_path, const std::filesystem::path& chunks_path, const Vec3u& chunk_size);
+
+    std::optional<Array3D<unsigned int>> reader(const Vec3i& coords) override;
+    void writer(const Vec3i& coords, const Array3D<unsigned int>& result) override;
+
+    void flush_index();
+
+    ~DiskChunkWFCIO();
+};
+
 
 class ChunkWFC {
 private:
@@ -20,16 +50,11 @@ private:
     unsigned int m_max_attempts;
 
 public:
-    using Writer_T = std::function<void(const Vec3i&, const Array3D<unsigned int>&)>;
-    using Reader_T = std::function<std::optional<Array3D<unsigned int>>(const Vec3i&)>;
-    using Exists_T = std::function<bool(const Vec3i&)>;
-
     AdjacencyConstraints constraints;
     TileWeights weights;
 
 private:
-    Writer_T writer;
-    Reader_T reader;
+    std::shared_ptr<ChunkWFCIO> m_handler;
     mutable ThreadPool pool;
 
     void init_margins(WFC& wfc, const Vec3i& coords, Directions d) const;
@@ -39,45 +64,14 @@ public:
     Signal<Vec3i,Array3D<unsigned int>> successful_chunk;
     Signal<Vec3i> failed_chunk;
 
-    ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const Writer_T& p_writer, const Reader_T& p_reader, unsigned int max_attempts = 4, unsigned int seed = 0);
-    ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const AdjacencyConstraints& constraints, const Writer_T& p_writer, const Reader_T& p_reader, unsigned int max_attempts = 4, unsigned int seed = 0);
+    ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const std::shared_ptr<ChunkWFCIO>& p_handler, unsigned int max_attempts = 4, unsigned int seed = 0);
+    ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const AdjacencyConstraints& constraints, const std::shared_ptr<ChunkWFCIO>& p_handler, unsigned int max_attempts = 4, unsigned int seed = 0);
 
     void generate_range(const Vec3i& from, const Vec3i& to) const;
     std::optional<Array3D<unsigned int>> get_chunk(const Vec3i& coords) const;
 
     ~ChunkWFC();
 
-};
-
-
-class DataChunkWFC {
-private:
-    std::shared_mutex m_mutex;
-    std::filesystem::path m_index_path, m_chunks_path;
-    std::unordered_map<Vec3i, uint32_t, Vec3Hash> m_index;
-    Vec3u m_chunk_size;
-    bool m_dirty = false;
-    
-    std::optional<Array3D<unsigned int>> reader_imp(const Vec3i& coords);
-    void writer_imp(const Vec3i& coords, const Array3D<unsigned int>& result);
-
-    void load_index();
-    void save_index();
-
-public:
-    DataChunkWFC(const std::filesystem::path& index_path, const std::filesystem::path& chunks_path, const Vec3u& chunk_size);
-
-    ChunkWFC::Reader_T reader = [this](const Vec3i& coords){
-        return this->reader_imp(coords);
-    };
-
-    ChunkWFC::Writer_T writer = [this](const Vec3i& coords, const Array3D<unsigned int>& result){
-        this->writer_imp(coords, result);
-    };
-
-    void flush_index();
-
-    ~DataChunkWFC();
 };
 
 }

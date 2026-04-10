@@ -9,26 +9,24 @@
 
 namespace wfc {
 
-ChunkWFC::ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const Writer_T& p_writer, const Reader_T& p_reader, unsigned int max_attempts, unsigned int seed)
+ChunkWFC::ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const std::shared_ptr<ChunkWFCIO>& p_handler, unsigned int max_attempts, unsigned int seed)
 :m_chunk_size(chunk_size), 
 m_rand(seed),
 m_max_attempts(max_attempts),
 constraints(weights.size(), true),
 weights(weights),
-writer(p_writer),
-reader(p_reader),
+m_handler(p_handler),
 pool()
 {}
 
 
-ChunkWFC::ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const AdjacencyConstraints& constraints, const Writer_T& p_writer, const Reader_T& p_reader, unsigned int max_attempts, unsigned int seed)
+ChunkWFC::ChunkWFC(const Vec3u& chunk_size, const TileWeights& weights, const AdjacencyConstraints& constraints, const std::shared_ptr<ChunkWFCIO>& p_handler, unsigned int max_attempts, unsigned int seed)
 :m_chunk_size(chunk_size), 
 m_rand(seed),
 m_max_attempts(max_attempts),
 constraints(constraints),
 weights(weights),
-writer(p_writer),
-reader(p_reader),
+m_handler(p_handler),
 pool()
 {}
 
@@ -39,7 +37,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
     CellState state(weights.size());
     switch (d) {
     case UP: {
-        auto result = reader(coords + Vec3Constants::UP);
+        auto result = m_handler->reader(coords + Vec3Constants::UP);
         if (result.has_value()) {
             assert(size == m_chunk_size && size == Vec3u(result->get_width(), result->get_height(), result->get_depth()));
             for (unsigned int x = 0; x < size.x; x++) {
@@ -51,7 +49,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
         }
         break;
     } case DOWN: {
-        auto result = reader(coords + Vec3Constants::DOWN);
+        auto result = m_handler->reader(coords + Vec3Constants::DOWN);
         if (result.has_value()) {
             assert(size == m_chunk_size && size == Vec3u(result->get_width(), result->get_height(), result->get_depth()));
             for (unsigned int x = 0; x < size.x; x++) {
@@ -63,7 +61,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
         }
         break;
     } case LEFT: {
-        auto result = reader(coords + Vec3Constants::LEFT);
+        auto result = m_handler->reader(coords + Vec3Constants::LEFT);
         if (result.has_value()) {
             assert(size == m_chunk_size && size == Vec3u(result->get_width(), result->get_height(), result->get_depth()));
             for (unsigned int y = 0; y < size.y; y++) {
@@ -75,7 +73,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
         }
         break;
     } case RIGHT: {
-        auto result = reader(coords + Vec3Constants::RIGHT);
+        auto result = m_handler->reader(coords + Vec3Constants::RIGHT);
         if (result.has_value()) {
             assert(size == m_chunk_size && size == Vec3u(result->get_width(), result->get_height(), result->get_depth()));
             for (unsigned int y = 0; y < size.y; y++) {
@@ -87,7 +85,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
         }
         break;
     } case FRONT: {
-        auto result = reader(coords + Vec3Constants::FRONT);
+        auto result = m_handler->reader(coords + Vec3Constants::FRONT);
         if (result.has_value()) {
             assert(size == m_chunk_size && size == Vec3u(result->get_width(), result->get_height(), result->get_depth()));
             for (unsigned int x = 0; x < size.x; x++) {
@@ -99,7 +97,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
         }
         break;
     } case BACK: {
-        auto result = reader(coords + Vec3Constants::BACK);
+        auto result = m_handler->reader(coords + Vec3Constants::BACK);
         if (result.has_value()) {
             assert(size == m_chunk_size && size == Vec3u(result->get_width(), result->get_height(), result->get_depth()));
             for (unsigned int x = 0; x < size.x; x++) {
@@ -159,7 +157,7 @@ void ChunkWFC::generate_range(const Vec3i& from, const Vec3i& to) const {
 
 
 std::optional<Array3D<unsigned int>> ChunkWFC::get_chunk_signal(const Vec3i& coords, bool signal) const {
-    auto result = reader(coords);
+    auto result = m_handler->reader(coords);
     if(result.has_value()){
         if(signal) successful_chunk.emit(coords, result.value());
         return result.value();
@@ -181,7 +179,7 @@ std::optional<Array3D<unsigned int>> ChunkWFC::get_chunk_signal(const Vec3i& coo
             bool success = wfc.run();
             if(success){
                 auto result = wfc.get_result();
-                writer(coords, result);
+                m_handler->writer(coords, result);
                 if(signal) successful_chunk.emit(coords, result);
                 return result;
             }else{
@@ -205,7 +203,7 @@ ChunkWFC::~ChunkWFC(){
 }
 
 
-DataChunkWFC::DataChunkWFC(const std::filesystem::path& index_path, const std::filesystem::path& chunks_path, const Vec3u& chunk_size)
+DiskChunkWFCIO::DiskChunkWFCIO(const std::filesystem::path& index_path, const std::filesystem::path& chunks_path, const Vec3u& chunk_size)
 :m_mutex(),
 m_index_path(index_path),
 m_chunks_path(chunks_path),
@@ -216,7 +214,7 @@ m_chunk_size(chunk_size)
 }
 
 
-void DataChunkWFC::load_index() {
+void DiskChunkWFCIO::load_index() {
     std::ifstream file(m_index_path, std::ios::binary);
     if (!file.is_open()) {
         return;
@@ -256,7 +254,7 @@ void DataChunkWFC::load_index() {
 }
 
 
-void DataChunkWFC::save_index() {
+void DiskChunkWFCIO::save_index() {
     std::ofstream file(m_index_path, std::ios::binary | std::ios::trunc);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open index file for writing");
@@ -291,7 +289,7 @@ void DataChunkWFC::save_index() {
 }
 
 
-std::optional<Array3D<unsigned int>> DataChunkWFC::reader_imp(const Vec3i& coords) {
+std::optional<Array3D<unsigned int>> DiskChunkWFCIO::reader(const Vec3i& coords) {
     std::shared_lock lock(m_mutex);
 
     auto it = m_index.find(coords);
@@ -327,7 +325,7 @@ std::optional<Array3D<unsigned int>> DataChunkWFC::reader_imp(const Vec3i& coord
 }
 
 
-void DataChunkWFC::writer_imp(const Vec3i& coords, const Array3D<unsigned int>& result) {
+void DiskChunkWFCIO::writer(const Vec3i& coords, const Array3D<unsigned int>& result) {
     std::unique_lock lock(m_mutex);
 
     std::fstream file(m_chunks_path, std::ios::binary | std::ios::in | std::ios::out);
@@ -367,12 +365,12 @@ void DataChunkWFC::writer_imp(const Vec3i& coords, const Array3D<unsigned int>& 
 }
 
 
-void DataChunkWFC::flush_index(){
+void DiskChunkWFCIO::flush_index(){
     if (m_dirty) save_index();
 }
 
 
-DataChunkWFC::~DataChunkWFC(){
+DiskChunkWFCIO::~DiskChunkWFCIO(){
     flush_index();
 }
 
