@@ -45,6 +45,8 @@ public:
     void generate_range(const Vec3i& from, const Vec3i& to) const;
     std::optional<Array3D<unsigned int>> get_chunk(const Vec3i& coords) const;
 
+    const Vec3u& get_chunk_size() const;
+
     ~ChunkWFC();
 
 };
@@ -76,6 +78,8 @@ public:
     };
 
     void flush_index();
+
+    const Vec3u& get_chunk_size();
 
     ~DataChunkWFC();
 };

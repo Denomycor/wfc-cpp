@@ -8,6 +8,8 @@
 
 namespace wfc {
 
+class ChunkWFC;
+
 class WFC : public AbstractWFC {
 private:
     WaveState* m_wave;
@@ -24,6 +26,8 @@ private:
 
     void propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue);
     bool update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor);
+    void propagate_exterior(const Vec3u& coords, Directions dir, const CellState& state);
+    void set_wave(const WaveState& wave);
 
 public:
     Signal<WFC*, int, Vec3u> stepped;
@@ -40,7 +44,6 @@ public:
     void collapse_cell(const Vec3u& coords);
     void collapse_cell(const Vec3u& coords, unsigned int bit);
     void propagate_constraints(const Vec3u& coords);
-    void propagate_exterior(const Vec3u& coords, Directions dir, const CellState& state);
 
     bool check_contradiction();
 
@@ -52,11 +55,11 @@ public:
 
     Array3D<unsigned int> get_result();
     Vec3u get_size();
-    const WaveState& get_wave();
-
-    void set_wave(const WaveState& wave);
+    const WaveState& get_wave() const;
 
     ~WFC() override;
+
+    friend ChunkWFC;
 
 };
 
