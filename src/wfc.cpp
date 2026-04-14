@@ -118,7 +118,7 @@ void WFC::collapse_cell(const Vec3u& coords, int boost_bit, double boost_factor)
     double total = 0;
     for(std::size_t i=0; i<cell.size(); i++){
         if(cell[i])
-            total += weights[i] * (i == boost_bit ? boost_factor : 1.0);
+            total += weights[i] * (static_cast<int>(i) == boost_bit ? boost_factor : 1.0);
     }
 
     auto r = m_rng.next_double();
@@ -126,7 +126,7 @@ void WFC::collapse_cell(const Vec3u& coords, int boost_bit, double boost_factor)
     auto selected = 0;
     for(std::size_t i=0; i<cell.size(); i++){
         if(cell[i]){
-            acc += weights[i] * (i == boost_bit ? boost_factor : 1.0) / total;
+            acc += weights[i] * (static_cast<int>(i) == boost_bit ? boost_factor : 1.0) / total;
             if(r <= acc){
                 selected = i;
                 break;
