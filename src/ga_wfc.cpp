@@ -76,7 +76,7 @@ GAWFC::Individual GAWFC::run(){
 }
 
 
-const GAWFC::Individual& GAWFC::tournament_select(const PopulationT& pop, int k) {
+const GAWFC::Individual& GAWFC::select(const PopulationT& pop, int k) {
     int best = m_rng.next_int(0, pop.size() - 1);
 
     for (int i = 1; i < k; i++) {
@@ -141,8 +141,8 @@ GAWFC::PopulationT GAWFC::make_new_generation(const PopulationT& pop) {
     add_elites(pop, next);
 
     while (static_cast<int>(next.size()) < m_population_size) {
-        const auto& p1 = tournament_select(pop);
-        const auto& p2 = tournament_select(pop);
+        const auto& p1 = select(pop);
+        const auto& p2 = select(pop);
 
         GenomeT child_genome;
 

@@ -42,11 +42,13 @@ public:
     void init_examples(const std::vector<GenomeT>& examples);
 
     virtual double fitness(const GenomeT& result) const = 0;
-    const Individual& tournament_select(const PopulationT& pop, int k = 3);
-    GenomeT crossover(const GenomeT& a, const GenomeT& b);
-    void mutate(GenomeT& g, double pmut, unsigned int tile_count);
-    PopulationT make_new_generation(const PopulationT& pop);
-    void add_elites(const PopulationT& pop, PopulationT& next, int elite_count = 2);
+    virtual const Individual& select(const PopulationT& pop, int k = 3);
+    virtual GenomeT crossover(const GenomeT& a, const GenomeT& b);
+    virtual void mutate(GenomeT& g, double pmut, unsigned int tile_count);
+    virtual PopulationT make_new_generation(const PopulationT& pop);
+    virtual void add_elites(const PopulationT& pop, PopulationT& next, int elite_count = 2);
+
+    virtual ~GAWFC() = default;
 
     Individual run();
 
