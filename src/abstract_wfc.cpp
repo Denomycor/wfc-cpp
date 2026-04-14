@@ -1,4 +1,6 @@
 #include "abstract_wfc.hpp"
+#include "array3d.hpp"
+#include "utils.hpp"
 #include <array>
 #include <boost/dynamic_bitset.hpp>
 #include <cmath>
@@ -179,6 +181,65 @@ void AdjacencyConstraints::generate_variant(std::size_t id,
         c[d][new_id] = c[D4[transform][d]][id];
     labels[new_id] = labels[id] + "_t" + std::to_string(transform);
 }
+
+
+
+// Generate wfc parameters from result
+
+static std::size_t get_n_tiles(const Array3D<unsigned int>& map){
+    unsigned int max = 0;
+    for(auto v : map){
+        max = std::max(v, max);
+    }
+    return max + 1;
+}
+
+
+static void update_constraint(AdjacencyConstraints& constraints, const Array3D<unsigned int>& map, const Vec3u& coords, Directions dir){
+    Vec3i neighbor;
+    switch (dir) {
+    case UP:
+        neighbor = Vec3Constants::UP + coords; break;
+    case DOWN:
+        neighbor = Vec3Constants::DOWN + coords; break;
+    case LEFT:
+        neighbor = Vec3Constants::LEFT + coords; break;
+    case RIGHT:
+        neighbor = Vec3Constants::RIGHT + coords; break;
+    case FRONT:
+        neighbor = Vec3Constants::FRONT + coords; break;
+    case BACK:
+        neighbor = Vec3Constants::BACK + coords; break;
+    case COUNT:
+      break;
+    }
+    auto[x,y,z] = neighbor;
+    if(map.valid_coords(x, y, z)){
+        auto coo = map.get(coords.x, coords.y, coords.z);
+        auto nei = map.get(x,y,z);
+        constraints.change_rule(coo, dir, nei, true);
+    }
+}
+
+
+std::pair<TileWeights, AdjacencyConstraints> get_wfc_parameters(const Array3D<unsigned int>& map){
+    auto n_tiles = get_n_tiles(map);
+    TileWeights weights(n_tiles, 0);
+    AdjacencyConstraints constraints(n_tiles, false);
+
+    for(unsigned int x = 0; x < map.get_width(); x++){
+    for(unsigned int y = 0; y < map.get_height(); y++){
+    for(unsigned int z = 0; z < map.get_depth(); z++){
+        auto tile = map.get(x, y, z);
+        weights[tile] += 1;
+        update_constraint(constraints, map, {x,y,z}, Directions::UP);
+        update_constraint(constraints, map, {x,y,z}, Directions::LEFT);
+        update_constraint(constraints, map, {x,y,z}, Directions::FRONT);
+
+    }}}
+    return {std::move(weights), std::move(constraints)};
+}
+
 
 }
 

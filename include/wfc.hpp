@@ -41,8 +41,7 @@ public:
     WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstraints& constraints, unsigned int seed = 0, bool periodic = false);
 
     std::optional<Vec3u> select_cell();
-    void collapse_cell(const Vec3u& coords);
-    void collapse_cell(const Vec3u& coords, unsigned int bit);
+    void collapse_cell(const Vec3u& coords, int boost_bit = -1, double boost_factor = 100000.0);
     void propagate_constraints(const Vec3u& coords);
 
     bool check_contradiction();
@@ -52,6 +51,9 @@ public:
 
     bool step();
     bool run();
+
+    bool step_boosted(const Array3D<unsigned int>& boost, double factor);
+    bool run_boosted(const Array3D<unsigned int>& boost, double factor);
 
     Array3D<unsigned int> get_result();
     Vec3u get_size();

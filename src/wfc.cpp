@@ -1,6 +1,7 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
 #include "utils.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cfloat>
 
@@ -110,23 +111,14 @@ std::optional<Vec3u> WFC::select_cell(){
 }
 
 
-void WFC::collapse_cell(const Vec3u& coords, unsigned int bit) {
-    auto[x,y,z] = coords;
-    auto& cell = m_wave->get(x, y, z);
-    cell.reset();
-    cell[bit] = true; 
-    m_entropy.invalidate_cell(coords);
-}
-
-
-void WFC::collapse_cell(const Vec3u& coords) {
+void WFC::collapse_cell(const Vec3u& coords, int boost_bit, double boost_factor) {
     auto[x,y,z] = coords;
     auto& cell = m_wave->get(x, y, z);
 
     double total = 0;
     for(std::size_t i=0; i<cell.size(); i++){
         if(cell[i])
-            total += weights[i];
+            total += weights[i] * (i == boost_bit ? boost_factor : 1.0);
     }
 
     auto r = m_rng.next_double();
@@ -134,7 +126,7 @@ void WFC::collapse_cell(const Vec3u& coords) {
     auto selected = 0;
     for(std::size_t i=0; i<cell.size(); i++){
         if(cell[i]){
-            acc += weights[i] / total;
+            acc += weights[i] * (i == boost_bit ? boost_factor : 1.0) / total;
             if(r <= acc){
                 selected = i;
                 break;
@@ -222,9 +214,32 @@ bool WFC::step() {
 }
 
 
+bool WFC::step_boosted(const Array3D<unsigned int>& boost, double factor){
+    auto selected = select_cell();
+    if(!selected.has_value()){
+        return true;
+    }
+    auto[x,y,z] = selected.value();
+    collapse_cell(selected.value(), boost.get(x,y,z), factor);
+    propagate_constraints(selected.value());
+    stepped.emit(this, m_step_counter++, selected.value());
+    return false;
+};
+
+
 bool WFC::run() {
     while(true){
         if(step()){
+            finished.emit(this);
+            return m_status != AbstractWFC::CONTRADICTION_STATUS;
+        };
+    }
+}
+
+
+bool WFC::run_boosted(const Array3D<unsigned int>& boost, double factor){
+    while(true){
+        if(step_boosted(boost, factor)){
             finished.emit(this);
             return m_status != AbstractWFC::CONTRADICTION_STATUS;
         };
@@ -245,6 +260,8 @@ const WaveState& WFC::get_wave() const {
 void WFC::set_wave(const WaveState& wave){
     *m_wave = wave;
 }
+
+
 
 }
 

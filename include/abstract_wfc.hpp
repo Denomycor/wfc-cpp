@@ -102,5 +102,7 @@ public:
     virtual ~AbstractWFC() = default;
 };
 
+std::pair<TileWeights, AdjacencyConstraints> get_wfc_parameters(const Array3D<unsigned int>& map);
+
 }
 
