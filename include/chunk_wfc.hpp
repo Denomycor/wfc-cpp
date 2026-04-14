@@ -20,7 +20,13 @@ struct ChunkWFCIO {
 };
 
 
-class DiskChunkWFCIO : ChunkWFCIO {
+struct NullChunkWFCIO final : public ChunkWFCIO  {
+    virtual std::optional<Array3D<unsigned int>> reader(const Vec3i& coords){return {};};
+    virtual void writer(const Vec3i& coords, const Array3D<unsigned int>& result){};
+};
+
+
+class DiskChunkWFCIO : public ChunkWFCIO {
 private:
     std::shared_mutex m_mutex;
     std::filesystem::path m_index_path, m_chunks_path;
