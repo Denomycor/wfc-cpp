@@ -172,5 +172,10 @@ void GAWFC::add_elites(const PopulationT& pop, PopulationT& next, int elite_coun
 }
 
 
+const Vec3u& GAWFC::get_wfc_size() const{
+    return m_wfc_size;
+}
+
+
 }
 

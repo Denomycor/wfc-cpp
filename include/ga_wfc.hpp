@@ -3,6 +3,7 @@
 #include "array3d.hpp"
 #include "random.hpp"
 #include "thread_pool.hpp"
+#include "utils.hpp"
 #include <vector>
 
 
@@ -40,6 +41,8 @@ public:
     GAWFC(const Vec3u& wfc_size, int max_generations, int population_size, int seed, double boost_factor);
 
     void init_examples(const std::vector<GenomeT>& examples);
+
+    const Vec3u& get_wfc_size() const;
 
     virtual double fitness(const GenomeT& result) const = 0;
     virtual const Individual& select(const PopulationT& pop, int k = 3);
