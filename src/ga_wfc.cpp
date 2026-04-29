@@ -60,6 +60,7 @@ GAWFC::Individual GAWFC::run(){
 
         m_current = make_new_generation(m_candidates);
 
+        generation_ended.emit(m_generation_count);
         m_generation_count++;
     }
 
@@ -169,6 +170,31 @@ void GAWFC::add_elites(const PopulationT& pop, PopulationT& next, int elite_coun
     for (int i = 0; i < elite_count; i++) {
         next.push_back(sorted[i]);
     }
+}
+
+
+const Vec3u& GAWFC::get_wfc_size() const {
+    return m_wfc_size;
+}
+
+
+int GAWFC::get_max_generations() const {
+    return m_max_generations;
+}
+
+
+int GAWFC::get_population_size() const {
+    return m_population_size;
+}
+
+
+int GAWFC::get_boost_factor() const {
+    return m_boost_factor;
+}
+
+
+int GAWFC::get_generation_count() const {
+    return m_generation_count;
 }
 
 

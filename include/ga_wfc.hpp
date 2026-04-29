@@ -1,8 +1,10 @@
 # pragma once
 #include "abstract_wfc.hpp"
 #include "array3d.hpp"
+#include "observer.hpp"
 #include "random.hpp"
 #include "thread_pool.hpp"
+#include "utils.hpp"
 #include <vector>
 
 
@@ -37,9 +39,17 @@ protected:
     int m_generation_count = 0;
 
 public:
+    Signal<int> generation_ended;
+
     GAWFC(const Vec3u& wfc_size, int max_generations, int population_size, int seed, double boost_factor);
 
     void init_examples(const std::vector<GenomeT>& examples);
+
+    const Vec3u& get_wfc_size() const;
+    int get_max_generations() const;
+    int get_population_size() const;
+    int get_boost_factor() const;
+    int get_generation_count() const;
 
     virtual double fitness(const GenomeT& result) const = 0;
     virtual const Individual& select(const PopulationT& pop, int k = 3);
