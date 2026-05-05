@@ -17,8 +17,6 @@ private:
 public:
     AdjacencyConstraints constraints;
     TileWeights weights;
-    // Maps each id to a string, 
-    TileLabels labels;
 private:
     Random m_rng;
     bool m_periodic;

@@ -68,7 +68,7 @@ private:
     WaveConstraints m_constraints;
     std::size_t m_tiles;
 
-    auto add_new_id(TileWeights& weights, TileLabels& labels);
+    auto add_new_id(TileWeights& weights);
 
 public:
     explicit AdjacencyConstraints(std::size_t n_tiles, bool default_allow_all = true);
@@ -76,7 +76,7 @@ public:
     const WaveConstraints& get() const;
     const TileConstraints& get(Directions dir) const;
     void change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value);
-    void generate_variant(std::size_t id, Variants2D type, TileWeights& weights, TileLabels& labels);
+    int generate_variant(std::size_t id, Variants2D type, TileWeights& weights);
 };
 
 

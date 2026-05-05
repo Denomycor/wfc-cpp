@@ -1,7 +1,6 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
 #include "utils.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cfloat>
 
@@ -14,7 +13,6 @@ WFC::WFC(const Vec3u& size, const TileWeights& weights, unsigned int seed, bool 
 m_entropy(size),
 constraints(weights.size(), true),
 weights(weights),
-labels(weights.size()),
 m_rng(seed),
 m_periodic(periodic)
 {}
@@ -33,7 +31,6 @@ WFC::WFC(const Vec3u& size, const TileWeights& weights, const AdjacencyConstrain
 m_entropy(size),
 constraints(constraints),
 weights(weights),
-labels(weights.size()),
 m_rng(seed),
 m_periodic(periodic)
 {}
