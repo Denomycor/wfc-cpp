@@ -166,8 +166,14 @@ int AdjacencyConstraints::generate_variant(std::size_t id, Variants2D transform,
     auto new_id = add_new_id(weights);
     weights[new_id] = weights[id];
     auto& c = m_constraints;
-    for(std::size_t d = 0; d < 4; d++)
+    for(std::size_t d = 0; d < 4; d++) {
         c[d][new_id] = c[D4[transform][d]][id];
+
+        for(std::size_t other = 0; other < new_id; other++) {
+            c[get_opposite(static_cast<Directions>(d))][other][new_id] =
+                c[get_opposite(D4[transform][d])][other][id];
+        }
+    }
     return new_id;
 }
 
