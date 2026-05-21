@@ -57,6 +57,8 @@ public:
     Vec3u get_size();
     const WaveState& get_wave() const;
 
+    bool validate() const;
+
     ~WFC() override;
 
     friend ChunkWFC;

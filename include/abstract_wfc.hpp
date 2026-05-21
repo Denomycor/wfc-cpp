@@ -75,7 +75,12 @@ public:
 
     const WaveConstraints& get() const;
     const TileConstraints& get(Directions dir) const;
+
     void change_rule(std::size_t id, Directions dir, std::size_t n_id, bool value);
+    void change_all_rules(bool value);
+    void change_all_rules_tile(std::size_t id, bool value);
+    void change_all_rules_tile_neighbor(std::size_t id, std::size_t n_id, bool value);
+
     int generate_variant(std::size_t id, Variants2D type, TileWeights& weights);
 };
 

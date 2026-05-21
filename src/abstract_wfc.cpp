@@ -104,6 +104,38 @@ void AdjacencyConstraints::change_rule(std::size_t id, Directions dir, std::size
 }
 
 
+void AdjacencyConstraints::change_all_rules(bool value){
+    int nr_tiles = m_constraints[Directions::UP].size();
+    for(int i=0; i<Directions::COUNT; i++){
+        for(int j=0; j<nr_tiles; j++){
+            if(value){
+                m_constraints[static_cast<Directions>(i)][j].set();
+            }else{
+                m_constraints[static_cast<Directions>(i)][j].reset();
+            }
+        }
+    }
+}
+
+
+void AdjacencyConstraints::change_all_rules_tile(std::size_t id, bool value){
+    int nr_tiles = m_constraints[Directions::UP].size();
+    for(int i=0; i<Directions::COUNT; i++){
+        for(int j=0; j<nr_tiles; j++){
+            change_rule(id, static_cast<Directions>(i), j, value);
+        }
+    }
+}
+
+
+void AdjacencyConstraints::change_all_rules_tile_neighbor(std::size_t id, std::size_t n_id, bool value){
+    for(int i=0; i<Directions::COUNT; i++){
+        change_rule(id, static_cast<Directions>(i), n_id, value);
+    }
+}
+
+
+
 //********************************************************************************************************
 
 auto AdjacencyConstraints::add_new_id(TileWeights& weights) {

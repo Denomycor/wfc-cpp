@@ -1,6 +1,7 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
 #include "utils.hpp"
+#include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <cassert>
 #include <cfloat>
 
@@ -258,6 +259,55 @@ void WFC::set_wave(const WaveState& wave){
     *m_wave = wave;
 }
 
+
+bool WFC::validate() const {
+    static const std::array<std::pair<Directions, Vec3i>, 6> dirs = {
+        std::make_pair(Directions::UP, Vec3Constants::UP),
+        std::make_pair(Directions::DOWN, Vec3Constants::DOWN),
+        std::make_pair(Directions::LEFT, Vec3Constants::LEFT),
+        std::make_pair(Directions::RIGHT, Vec3Constants::RIGHT),
+        std::make_pair(Directions::FRONT, Vec3Constants::FRONT),
+        std::make_pair(Directions::BACK, Vec3Constants::BACK)
+    };
+
+    for (int z = 0; z < m_wave->get_depth(); z++) {
+    for (int y = 0; y < m_wave->get_height(); y++) {
+    for (int x = 0; x < m_wave->get_width(); x++) {
+
+        auto here = m_wave->get(x, y, z);
+
+        for (auto& [dir, offset] : dirs) {
+
+            auto npos = Vec3i(x, y, z) + offset;
+
+            if (!m_wave->valid_coords(npos.x, npos.y, npos.z))
+                continue;
+
+            auto& neighbor = m_wave->get(npos.x, npos.y, npos.z);
+
+            boost::dynamic_bitset<> allowed(weights.size());
+            bool has_any = false;
+
+            // Union all constraints from current cell possibilities
+            for (size_t i = 0; i < weights.size(); i++) {
+                if (!here[i]) continue;
+
+                allowed |= constraints.get(dir)[i];
+                has_any = true;
+            }
+
+            if (!has_any)
+                continue;
+
+            // neighbor must match allowed set
+            if ((neighbor & allowed).none()) {
+                return false;
+            }
+        }
+    }}}
+
+    return true;
+}
 
 
 }
