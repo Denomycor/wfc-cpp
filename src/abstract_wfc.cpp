@@ -152,14 +152,14 @@ auto AdjacencyConstraints::add_new_id(TileWeights& weights) {
 
 
 static const std::array<std::array<Directions,4>,8> D4 = {{
-    {UP, DOWN, LEFT, RIGHT}, // identity
-    {LEFT, RIGHT, DOWN, UP}, // rot90
-    {DOWN, UP, RIGHT, LEFT}, // rot180
-    {RIGHT, LEFT, UP, DOWN}, // rot270
-    {DOWN, UP, LEFT, RIGHT}, // vertical flip
-    {UP, DOWN, RIGHT, LEFT}, // horizontal flip
-    {RIGHT, LEFT, DOWN, UP}, // horizontal flip + rot90
-    {LEFT, RIGHT, UP, DOWN}, // horizontal flip + rot270
+    {UP,    RIGHT, DOWN,  LEFT },  // identity
+    {LEFT,  UP,    RIGHT, DOWN },  // rot90   (CW: new UP←old LEFT, new RIGHT←old UP,  new DOWN←old RIGHT, new LEFT←old DOWN)
+    {DOWN,  LEFT,  UP,    RIGHT},  // rot180
+    {RIGHT, DOWN,  LEFT,  UP   },  // rot270  (CW: new UP←old RIGHT, new RIGHT←old DOWN, new DOWN←old LEFT, new LEFT←old UP)
+    {DOWN,  RIGHT, UP,    LEFT },  // vertical flip   (new UP←old DOWN, RIGHT stays, new DOWN←old UP, LEFT stays)
+    {UP,    LEFT,  DOWN,  RIGHT},  // horizontal flip (UP stays, new RIGHT←old LEFT, DOWN stays, new LEFT←old RIGHT)
+    {RIGHT, UP,    LEFT,  DOWN },  // horizontal flip + rot90
+    {LEFT,  DOWN,  RIGHT, UP   },  // horizontal flip + rot270
 }};
 
 

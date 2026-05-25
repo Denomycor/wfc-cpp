@@ -11,9 +11,9 @@ namespace wfc{
 
 enum Directions {
     UP,
+    RIGHT,
     DOWN,
     LEFT,
-    RIGHT,
     FRONT,
     BACK,
     COUNT,
