@@ -162,8 +162,9 @@ void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir
     };
     if(m_periodic){
         if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
-            queue.push(to);
-            m_entropy.invalidate_cell(to.wrapi(dim));
+            Vec3u wrapped_to = to.wrapi(dim);
+            queue.push(static_cast<Vec3i>(wrapped_to));
+            m_entropy.invalidate_cell(wrapped_to);
         }
     }else if(m_wave->valid_coords(t_x, t_y, t_z)){
         if(update_cell_state(m_wave->get(t_x, t_y, t_z), constraints.get(dir), m_wave->get(f_x, f_y, f_z))){
