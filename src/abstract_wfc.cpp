@@ -139,8 +139,10 @@ void AdjacencyConstraints::merge(const AdjacencyConstraints& other){
     for(int d = 0; d < Directions::COUNT; d++){
         auto& dst = m_constraints[d];
         const auto& src = other.m_constraints[d];
-        for(std::size_t t = 0; t < dst.size(); t++){
-            dst[t] |= src[t];
+        for(std::size_t t = 0; t < std::min(dst.size(), src.size()); t++){
+            auto tmp = src[t];
+            tmp.resize(dst[t].size(), 0);
+            dst[t] |= tmp;
         }
     }
 }

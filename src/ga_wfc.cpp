@@ -28,6 +28,7 @@ m_boost_factor(boost_factor)
 
 void GAWFC::init_examples(const std::vector<GenomeT>& examples){
     assert(static_cast<int>(examples.size()) == m_population_size && "Examples should match the population size");
+    m_current.clear();
     m_current.reserve(examples.size());
     for(const auto& v: examples){
         assert(v.get_width() == m_wfc_size.x && v.get_height() == m_wfc_size.y && v.get_depth() == m_wfc_size.z &&
@@ -41,10 +42,19 @@ void GAWFC::init_examples(const std::vector<GenomeT>& examples){
 
 
 void GAWFC::setup(){
-    auto[weights, constraints] = get_wfc_parameters(m_current[0].genome);
-    for(std::size_t i = 1; i < m_current.size(); i++){
-        auto[w, c] = get_wfc_parameters(m_current[i].genome);
-        for(std::size_t t = 0; t < weights.size(); t++)
+    // Pre-compute the global tile count as the max tile ID across all examples
+    // so the accumulator is sized correctly before any merging begins.
+    std::size_t n_tiles = 0;
+    for(const auto& ind : m_current)
+        for(auto t : ind.genome)
+            n_tiles = std::max(n_tiles, static_cast<std::size_t>(t) + 1);
+
+    TileWeights weights(n_tiles, 0);
+    AdjacencyConstraints constraints(n_tiles, false);
+
+    for(const auto& ind : m_current){
+        auto[w, c] = get_wfc_parameters(ind.genome);
+        for(std::size_t t = 0; t < w.size(); t++)
             weights[t] += w[t];
         constraints.merge(c);
     }
