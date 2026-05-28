@@ -135,6 +135,16 @@ void AdjacencyConstraints::change_all_rules_tile_neighbor(std::size_t id, std::s
 }
 
 
+void AdjacencyConstraints::merge(const AdjacencyConstraints& other){
+    for(int d = 0; d < Directions::COUNT; d++){
+        auto& dst = m_constraints[d];
+        const auto& src = other.m_constraints[d];
+        for(std::size_t t = 0; t < dst.size(); t++){
+            dst[t] |= src[t];
+        }
+    }
+}
+
 
 //********************************************************************************************************
 

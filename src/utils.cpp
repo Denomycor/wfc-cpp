@@ -5,7 +5,10 @@
 namespace wfc {
 
 int wrapped(int lower, int upper, int x){
-    return x % (upper - lower) + lower;
+    int range = upper - lower;
+    int r = (x - lower) % range;
+    if (r < 0) r += range;
+    return r + lower;
 }
 
 

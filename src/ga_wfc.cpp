@@ -34,11 +34,20 @@ void GAWFC::init_examples(const std::vector<GenomeT>& examples){
                "Provided examples do not match specified size");
         m_current.emplace_back<Individual>({v, 0.0});
     }
+    // Derive tile weights and adjacency constraints from the first example.
+    // Must be called after m_current is populated.
+    setup();
 }
 
 
 void GAWFC::setup(){
     auto[weights, constraints] = get_wfc_parameters(m_current[0].genome);
+    for(std::size_t i = 1; i < m_current.size(); i++){
+        auto[w, c] = get_wfc_parameters(m_current[i].genome);
+        for(std::size_t t = 0; t < weights.size(); t++)
+            weights[t] += w[t];
+        constraints.merge(c);
+    }
     m_weights = std::move(weights);
     m_constraints = std::move(constraints);
 }
@@ -52,11 +61,19 @@ GAWFC::Individual GAWFC::run(){
                 WFC wfc(m_wfc_size, m_weights, m_constraints, m_seed + i, false);
                 wfc.init();
                 wfc.run_boosted(m_current[i].genome, m_boost_factor);
-                auto result = wfc.get_result();
-                m_candidates[i] = {std::move(result), fitness(result)};
+                // Store the genome only; fitness is evaluated serially below
+                // so that overridden fitness() implementations (e.g. GDScript
+                // callables) are never called from a worker thread.
+                m_candidates[i].genome = wfc.get_result();
             }, i);
         }
         m_pool.wait();
+
+        // Evaluate fitness serially on the calling thread (thread-safe for
+        // user-supplied fitness functions such as GDScript callables).
+        for(std::size_t i = 0; i < m_candidates.size(); i++){
+            m_candidates[i].fitness = fitness(m_candidates[i].genome);
+        }
 
         m_current = make_new_generation(m_candidates);
 

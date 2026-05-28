@@ -80,6 +80,7 @@ public:
     void change_all_rules(bool value);
     void change_all_rules_tile(std::size_t id, bool value);
     void change_all_rules_tile_neighbor(std::size_t id, std::size_t n_id, bool value);
+    void merge(const AdjacencyConstraints& other);
 
     int generate_variant(std::size_t id, Variants2D type, TileWeights& weights);
 };
