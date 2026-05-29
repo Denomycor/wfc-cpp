@@ -43,6 +43,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {x, 0, z};
+                state.reset();
                 state[result->get(x, size.y - 1, z)] = true;
                 wfc.propagate_exterior(coord, get_opposite(UP), state);
             }}
@@ -55,6 +56,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {x, size.y - 1, z};
+                state.reset();
                 state[result->get(x, 0, z)] = true;
                 wfc.propagate_exterior(coord, get_opposite(DOWN), state);
             }}
@@ -67,6 +69,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int y = 0; y < size.y; y++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {0, y, z};
+                state.reset();
                 state[result->get(size.x - 1, y, z)] = true;
                 wfc.propagate_exterior(coord, get_opposite(LEFT), state);
             }}
@@ -79,6 +82,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int y = 0; y < size.y; y++) {
             for (unsigned int z = 0; z < size.z; z++) {
                 Vec3u coord = {size.x - 1, y, z};
+                state.reset();
                 state[result->get(0, y, z)] = true;
                 wfc.propagate_exterior(coord, get_opposite(RIGHT), state);
             }}
@@ -91,6 +95,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int y = 0; y < size.y; y++) {
                 Vec3u coord = {x, y, size.z - 1};
+                state.reset();
                 state[result->get(x, y, 0)] = true;
                 wfc.propagate_exterior(coord, get_opposite(FRONT), state);
             }}
@@ -103,6 +108,7 @@ void ChunkWFC::init_margins(WFC& wfc, const Vec3i& coords, Directions d) const {
             for (unsigned int x = 0; x < size.x; x++) {
             for (unsigned int y = 0; y < size.y; y++) {
                 Vec3u coord = {x, y, 0};
+                state.reset();
                 state[result->get(x, y, size.z - 1)] = true;
                 wfc.propagate_exterior(coord, get_opposite(BACK), state);
             }}
@@ -205,6 +211,29 @@ ChunkWFC::~ChunkWFC(){}
 const Vec3u& ChunkWFC::get_chunk_size() const{
     return m_chunk_size;
 }
+
+
+MemoryChunkWFCIO::MemoryChunkWFCIO()
+:m_mutex(),
+m_store()
+{}
+
+
+std::optional<Array3D<unsigned int>> MemoryChunkWFCIO::reader(const Vec3i& coords) {
+    std::shared_lock lock(m_mutex);
+    auto it = m_store.find(coords);
+    if (it == m_store.end()) return {};
+    return it->second;
+}
+
+
+void MemoryChunkWFCIO::writer(const Vec3i& coords, const Array3D<unsigned int>& result) {
+    std::unique_lock lock(m_mutex);
+    m_store[coords] = result;
+}
+
+
+MemoryChunkWFCIO::~MemoryChunkWFCIO(){}
 
 
 DiskChunkWFCIO::DiskChunkWFCIO(const std::filesystem::path& index_path, const std::filesystem::path& chunks_path, const Vec3u& chunk_size)

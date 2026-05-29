@@ -26,6 +26,21 @@ struct NullChunkWFCIO final : public ChunkWFCIO  {
 };
 
 
+class MemoryChunkWFCIO : public ChunkWFCIO {
+private:
+    std::shared_mutex m_mutex;
+    std::unordered_map<Vec3i, Array3D<unsigned int>, Vec3Hash> m_store;
+
+public:
+    MemoryChunkWFCIO();
+
+    std::optional<Array3D<unsigned int>> reader(const Vec3i& coords) override;
+    void writer(const Vec3i& coords, const Array3D<unsigned int>& result) override;
+
+    ~MemoryChunkWFCIO();
+};
+
+
 class DiskChunkWFCIO : public ChunkWFCIO {
 private:
     std::shared_mutex m_mutex;
