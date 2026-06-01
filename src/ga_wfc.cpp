@@ -2,6 +2,7 @@
 #include "abstract_wfc.hpp"
 #include "wfc.hpp"
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 
@@ -64,11 +65,15 @@ void GAWFC::setup(){
 
 
 GAWFC::Individual GAWFC::run(){
+    Individual best_ever;
+    best_ever.fitness = std::numeric_limits<double>::lowest();
+
     while (m_generation_count < m_max_generations) {
+        const int gen_offset = m_generation_count * m_population_size;
 
         for(std::size_t i = 0; i < m_current.size(); i++){
-            m_pool.enqueue([this](std::size_t i){
-                WFC wfc(m_wfc_size, m_weights, m_constraints, m_seed + i, false);
+            m_pool.enqueue([this, gen_offset](std::size_t i){
+                WFC wfc(m_wfc_size, m_weights, m_constraints, m_seed + gen_offset + i, false);
                 wfc.init();
                 wfc.run_boosted(m_current[i].genome, m_boost_factor);
                 // Store the genome only; fitness is evaluated serially below
@@ -83,6 +88,8 @@ GAWFC::Individual GAWFC::run(){
         // user-supplied fitness functions such as GDScript callables).
         for(std::size_t i = 0; i < m_candidates.size(); i++){
             m_candidates[i].fitness = fitness(m_candidates[i].genome);
+            if (m_candidates[i].fitness > best_ever.fitness)
+                best_ever = m_candidates[i];
         }
 
         m_current = make_new_generation(m_candidates);
@@ -91,16 +98,7 @@ GAWFC::Individual GAWFC::run(){
         m_generation_count++;
     }
 
-    auto it = std::max_element(
-        m_current.begin(),
-        m_current.end(),
-        [](const Individual& a, const Individual& b) {
-            return a.fitness < b.fitness;
-        }
-    );
-
-    Individual* best = (it != m_current.end()) ? &*it : &(m_current[0]);
-    return *best;
+    return best_ever;
 }
 
 
@@ -121,7 +119,8 @@ const GAWFC::Individual& GAWFC::select(const PopulationT& pop, int k) {
 GAWFC::GenomeT GAWFC::crossover(const GAWFC::GenomeT& a, const GAWFC::GenomeT& b) {
     GAWFC::GenomeT child(a.get_width(), a.get_height(), a.get_depth());
 
-    int axis = m_rng.next_int(0, 2);
+    const int axes = (m_wfc_size.z > 1) ? 3 : 2;
+    int axis = m_rng.next_int(0, axes - 1);
 
     if (axis == 0) { // X split
         std::size_t split = m_rng.next_int(0, m_wfc_size.x - 1);
