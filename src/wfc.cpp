@@ -161,8 +161,14 @@ void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir
         static_cast<unsigned int>(m_wave->get_depth())
     };
     if(m_periodic){
+        Vec3u wrapped_to = to.wrapi(dim);
+        // A size-1 axis wraps back onto the source cell itself: there is no
+        // actual neighbor in this direction, so skip it rather than
+        // constraining a cell against itself with a (likely empty, e.g.
+        // FRONT/BACK on a 2D grid) constraint set.
+        if(static_cast<Vec3i>(wrapped_to) == from) return;
+
         if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
-            Vec3u wrapped_to = to.wrapi(dim);
             queue.push(static_cast<Vec3i>(wrapped_to));
             m_entropy.invalidate_cell(wrapped_to);
         }
