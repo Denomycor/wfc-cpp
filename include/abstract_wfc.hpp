@@ -44,16 +44,48 @@ Directions get_opposite(Directions dir);
 
 
 /*
- * Memoizes entropy values for WFC cells to avoid recalculating values
+ * Memoizes entropy values for WFC cells to avoid recalculating values.
+ *
+ * The cache miss path itself is incremental rather than a from-scratch
+ * recompute: reset() precomputes each tile's weight*log(weight) term once
+ * and seeds every cell's running (sum of weights, sum of weight*log(weight))
+ * assuming all tiles are possible; remove_tile() then adjusts those sums by
+ * a simple subtraction whenever a specific tile stops being possible
+ * somewhere, so a cache miss only ever needs one log() call instead of a
+ * loop over every still-possible tile.
  */
 class EntropyMemory {
 private:
     Array3D<std::pair<bool, double>> m_memory;
+    TileWeights m_weights;
+    std::vector<double> m_weight_log_weight;
+    Array3D<double> m_sum_weights;
+    Array3D<double> m_sum_weight_log_weights;
 
 public:
     EntropyMemory(const Vec3u& size);
 
+    // (Re)seeds every cell's running sums as if all tiles were possible,
+    // and precomputes weights[t]*log(weights[t]) once per tile. Must be
+    // called before get_cell_entropy/remove_tile are used (WFC::init()
+    // does this), and again any time `weights` changes.
+    void reset(const TileWeights& weights);
+
+    // Fully re-derives every cell's running sums directly from `wave`'s
+    // actual contents, for when the wave is replaced wholesale (e.g.
+    // WFC::set_wave), which bypasses remove_tile's incremental accounting.
+    // O(cells x tiles), same cost class as the old from-scratch recompute,
+    // but paid once here rather than repeatedly per cache miss.
+    void resync(const WaveState& wave);
+
     double get_cell_entropy(const Vec3u& cell, const CellState& state, const TileWeights& weights);
+
+    // Records that `tile` is no longer possible at `cell`: adjusts that
+    // cell's running sums (skipping non-positive-weight tiles, matching
+    // get_cell_entropy's existing exclusion of them) and invalidates the
+    // cached value.
+    void remove_tile(const Vec3u& cell, std::size_t tile);
+
     void invalidate_cell(const Vec3u& cell);
     void invalidate_all();
 

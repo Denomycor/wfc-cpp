@@ -1,9 +1,11 @@
 #include "wfc.hpp"
 #include "abstract_wfc.hpp"
 #include "utils.hpp"
+#include <algorithm>
 #include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <cassert>
 #include <cfloat>
+#include <tuple>
 
 namespace wfc {
 
@@ -65,7 +67,13 @@ void WFC::init(){
         c.set();
     }
     m_scratch.resize(weights.size());
+    m_removed.resize(weights.size());
+    m_entropy.reset(weights);
+    // Set before rebuild_entropy_queue(), not after: a degenerate all-empty
+    // (e.g. zero tiles) wave would otherwise have this unconditionally
+    // overwrite the CONTRADICTION_STATUS requeue_cell just set.
     m_status = Status::READY_STATUS;
+    rebuild_entropy_queue();
 }
 
 
@@ -79,34 +87,79 @@ Array3D<unsigned int> WFC::get_result() {
 
 
 std::optional<Vec3u> WFC::select_cell(){
+    // A contradiction is flagged eagerly (see requeue_cell) the moment any
+    // cell loses its last possible tile, rather than discovered by scanning
+    // for it here: m_status only ever moves into CONTRADICTION_STATUS, and
+    // once it does every subsequent select_cell() call (this one included)
+    // must report it before considering any candidate.
+    if(m_status == AbstractWFC::CONTRADICTION_STATUS){
+        return {};
+    }
+
+    if(m_entropy_queue.empty()){
+        m_status = AbstractWFC::FINISHED_STATUS;
+        return {};
+    }
+
+    // m_entropy_queue is sorted by entropy, so the tied-for-lowest set is
+    // exactly the run of entries at the front within `error` of the first
+    // one's entropy -- walking forward and stopping at the first non-tied
+    // entry correctly finds that set, since is_approx is checked against a
+    // fixed reference (the true minimum) and entropy only increases from
+    // there. Their order within the multimap is not meaningful (see the
+    // member comment), so re-sort the collected set by grid position to
+    // match the old full-scan's (x outer, z inner) iteration order exactly
+    // -- otherwise near-tied entries (is_approx-equal but not
+    // bit-identical) land in whatever order their tiny floating-point
+    // difference happens to produce, changing which cell a given RNG draw
+    // lands on even though the draw itself, and the tied *set*, match.
     m_select_candidates.clear();
-    double min_entropy = DBL_MAX;
+    double min_entropy = m_entropy_queue.begin()->first;
+    for(auto it = m_entropy_queue.begin(); it != m_entropy_queue.end() && is_approx(it->first, min_entropy); ++it){
+        m_select_candidates.push_back(it->second);
+    }
+    std::sort(m_select_candidates.begin(), m_select_candidates.end(), [](const Vec3u& a, const Vec3u& b){
+        return std::tie(a.x, a.y, a.z) < std::tie(b.x, b.y, b.z);
+    });
+
+    m_status = AbstractWFC::RUNNING_STATUS;
+    return m_select_candidates[m_rng.next_int() % m_select_candidates.size()];
+}
+
+
+void WFC::requeue_cell(const Vec3u& coords){
+    std::size_t idx = m_wave->index(coords.x, coords.y, coords.z);
+
+    auto pos_it = m_entropy_pos.find(idx);
+    if(pos_it != m_entropy_pos.end()){
+        m_entropy_queue.erase(pos_it->second);
+        m_entropy_pos.erase(pos_it);
+    }
+
+    const auto& cell = m_wave->get(coords.x, coords.y, coords.z);
+    auto remaining = cell.count();
+    if(remaining <= 1){
+        // Resolved (1 left, entropy is exactly 0) or contradicted (0
+        // left): not a selection candidate either way.
+        if(remaining == 0) m_status = AbstractWFC::CONTRADICTION_STATUS;
+        return;
+    }
+
+    double e = m_entropy.get_cell_entropy(coords, cell, weights);
+    auto it = m_entropy_queue.emplace(e, coords);
+    m_entropy_pos.emplace(idx, it);
+}
+
+
+void WFC::rebuild_entropy_queue(){
+    m_entropy_queue.clear();
+    m_entropy_pos.clear();
 
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
     for(std::size_t y = 0; y < m_wave->get_height(); y++){
     for(std::size_t z = 0; z < m_wave->get_depth(); z++){
-        double e = m_entropy.get_cell_entropy(Vec3u(x,y,z), m_wave->get(x,y,z), weights);
-        if(e > EPS) {
-            if (is_approx(e, min_entropy)) {
-                m_select_candidates.emplace_back(x,y,z);
-            } else if(e < min_entropy){
-                m_select_candidates.clear();
-                m_select_candidates.emplace_back(x,y,z);
-                min_entropy = e;
-            }
-        }else if(is_approx(e, -1.0)){
-            m_status = AbstractWFC::CONTRADICTION_STATUS;
-            return {};
-        }
+        requeue_cell(Vec3u(x,y,z));
     }}}
-
-    if(is_approx(min_entropy, DBL_MAX)) {
-        m_status = AbstractWFC::FINISHED_STATUS;
-        return {};
-    }else{
-        m_status = AbstractWFC::RUNNING_STATUS;
-        return m_select_candidates[m_rng.next_int() % m_select_candidates.size()];
-    }
 }
 
 
@@ -133,27 +186,51 @@ void WFC::collapse_cell(const Vec3u& coords, int boost_bit, double boost_factor)
         }
     }
 
+    // Tell EntropyMemory exactly which tiles are being removed (everything
+    // that was possible except the one selected) before actually clearing
+    // them, so its running sums stay correct incrementally instead of
+    // needing a from-scratch recompute on the next cache miss.
+    for(std::size_t i=0; i<cell.size(); i++){
+        if(cell[i] && static_cast<int>(i) != selected){
+            m_entropy.remove_tile(coords, i);
+        }
+    }
+
     cell.reset();
-    cell[selected] = true; 
-    m_entropy.invalidate_cell(coords);
+    cell[selected] = true;
+
+    // The cell is now resolved (1 tile left): pulls it out of the entropy
+    // queue, since it's no longer a selection candidate.
+    requeue_cell(coords);
 }
 
 
-bool WFC::update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
+bool WFC::update_cell_state(const Vec3u& coords, CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
     // m_scratch is reused across calls (sized once in init()) instead of
-    // allocating a fresh bitset every time; a change is detected by
-    // comparing set-bit counts before/after instead of copying cell into a
-    // temporary, since `cell &= ...` can only ever clear bits, never set
-    // them, so the count can only decrease.
+    // allocating a fresh bitset every time.
     m_scratch.reset();
     for (std::size_t i = 0; i < neighbor.size(); i++) {
         if (neighbor[i]) {
             m_scratch |= constraints[i];
         }
     }
-    auto before = cell.count();
+
+    // m_removed (also reused, no allocation) ends up holding exactly the
+    // tiles this call eliminates: was possible before, isn't after. Reusing
+    // it as the change signal (instead of comparing set-bit counts) lets
+    // EntropyMemory be told precisely which tiles were removed, rather than
+    // just "something changed".
+    m_removed = cell;
     cell &= m_scratch;
-    return cell.count() != before;
+    m_removed -= cell;
+
+    if(m_removed.none()) return false;
+
+    for(auto t = m_removed.find_first(); t != CellState::npos; t = m_removed.find_next(t)){
+        m_entropy.remove_tile(coords, t);
+    }
+    requeue_cell(coords);
+    return true;
 }
 
 
@@ -173,14 +250,13 @@ void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir
         // FRONT/BACK on a 2D grid) constraint set.
         if(static_cast<Vec3i>(wrapped_to) == from) return;
 
-        if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
+        if(update_cell_state(wrapped_to, m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
             m_propagate_queue.push(static_cast<Vec3i>(wrapped_to));
-            m_entropy.invalidate_cell(wrapped_to);
         }
     }else if(m_wave->valid_coords(t_x, t_y, t_z)){
-        if(update_cell_state(m_wave->get(t_x, t_y, t_z), constraints.get(dir), m_wave->get(f_x, f_y, f_z))){
+        Vec3u target = to.to_vec3u();
+        if(update_cell_state(target, m_wave->get(t_x, t_y, t_z), constraints.get(dir), m_wave->get(f_x, f_y, f_z))){
             m_propagate_queue.push(to);
-            m_entropy.invalidate_cell(to.to_vec3u());
         }
     }
 }
@@ -209,7 +285,7 @@ void WFC::propagate_constraints(const Vec3u& coords){
 
 void WFC::propagate_exterior(const Vec3u& coords, Directions dir, const CellState& state){
     auto[x,y,z] = coords;
-    update_cell_state(m_wave->get(x,y,z), constraints.get(dir), state);
+    update_cell_state(coords, m_wave->get(x,y,z), constraints.get(dir), state);
     propagate_constraints(coords);
 }
 
@@ -271,6 +347,12 @@ const WaveState& WFC::get_wave() const {
 
 void WFC::set_wave(const WaveState& wave){
     *m_wave = wave;
+    // Bypasses remove_tile's incremental accounting entirely (the wave is
+    // replaced wholesale, not mutated tile-by-tile), so the running sums
+    // -- and the entropy queue, which is driven off the same per-removal
+    // events -- both need a full re-derivation from the new contents.
+    m_entropy.resync(*m_wave);
+    rebuild_entropy_queue();
 }
 
 

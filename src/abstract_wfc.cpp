@@ -27,8 +27,52 @@ Directions get_opposite(Directions dir) {
 
 
 EntropyMemory::EntropyMemory(const Vec3u& size)
-:m_memory(size.x, size.y, size.z, std::make_pair(false, 0.0))
+:m_memory(size.x, size.y, size.z, std::make_pair(false, 0.0)),
+m_sum_weights(size.x, size.y, size.z, 0.0),
+m_sum_weight_log_weights(size.x, size.y, size.z, 0.0)
 {}
+
+
+void EntropyMemory::reset(const TileWeights& weights){
+    m_weights = weights;
+    m_weight_log_weight.assign(weights.size(), 0.0);
+
+    double total_w = 0;
+    double total_wlw = 0;
+    for(std::size_t t = 0; t < weights.size(); t++){
+        if(weights[t] > 0){
+            m_weight_log_weight[t] = weights[t] * log(weights[t]);
+            total_w += weights[t];
+            total_wlw += m_weight_log_weight[t];
+        }
+    }
+
+    for(auto& v : m_sum_weights) v = total_w;
+    for(auto& v : m_sum_weight_log_weights) v = total_wlw;
+
+    invalidate_all();
+}
+
+
+void EntropyMemory::resync(const WaveState& wave){
+    for(std::size_t i = 0; i < wave.size(); i++){
+        const CellState& state = wave.get_linear(i);
+        double w_sum = 0;
+        double wlw_sum = 0;
+
+        for(std::size_t t = 0; t < state.size(); t++){
+            if(state[t] && m_weights[t] > 0){
+                w_sum += m_weights[t];
+                wlw_sum += m_weight_log_weight[t];
+            }
+        }
+
+        m_sum_weights.get_linear(i) = w_sum;
+        m_sum_weight_log_weights.get_linear(i) = wlw_sum;
+    }
+
+    invalidate_all();
+}
 
 
 double EntropyMemory::get_cell_entropy(const Vec3u& cell, const CellState& state, const TileWeights& weights){
@@ -41,20 +85,23 @@ double EntropyMemory::get_cell_entropy(const Vec3u& cell, const CellState& state
         return -1;
 
     }else{
-        double w_sum = 0;
-        double sum_sum = 0;
-        
-        for(std::size_t i=0; i<state.size(); i++){
-            if(state[i] && weights[i] > 0){
-                w_sum += weights[i];
-                sum_sum += weights[i] * log(weights[i]);
-            }
-        }
+        double w_sum = m_sum_weights.get(x,y,z);
+        double sum_sum = m_sum_weight_log_weights.get(x,y,z);
 
         double value = log(w_sum) - (sum_sum/w_sum);
         m_memory.set(x, y, z, std::make_pair(true, value));
         return value;
     }
+}
+
+
+void EntropyMemory::remove_tile(const Vec3u& cell, std::size_t tile){
+    if(m_weights[tile] <= 0) return; // never contributed to the sums, nothing to subtract
+
+    auto[x,y,z] = cell;
+    m_sum_weights.get(x,y,z) -= m_weights[tile];
+    m_sum_weight_log_weights.get(x,y,z) -= m_weight_log_weight[tile];
+    invalidate_cell(cell);
 }
 
 
