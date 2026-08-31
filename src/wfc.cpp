@@ -64,6 +64,7 @@ void WFC::init(){
         c.resize(weights.size(), 1);
         c.set();
     }
+    m_scratch.resize(weights.size());
     m_status = Status::READY_STATUS;
 }
 
@@ -78,7 +79,7 @@ Array3D<unsigned int> WFC::get_result() {
 
 
 std::optional<Vec3u> WFC::select_cell(){
-    std::vector<Vec3u> out;
+    m_select_candidates.clear();
     double min_entropy = DBL_MAX;
 
     for(std::size_t x = 0; x < m_wave->get_width(); x++){
@@ -87,10 +88,10 @@ std::optional<Vec3u> WFC::select_cell(){
         double e = m_entropy.get_cell_entropy(Vec3u(x,y,z), m_wave->get(x,y,z), weights);
         if(e > EPS) {
             if (is_approx(e, min_entropy)) {
-                out.emplace_back(x,y,z);
+                m_select_candidates.emplace_back(x,y,z);
             } else if(e < min_entropy){
-                out.clear();
-                out.emplace_back(x,y,z);   
+                m_select_candidates.clear();
+                m_select_candidates.emplace_back(x,y,z);
                 min_entropy = e;
             }
         }else if(is_approx(e, -1.0)){
@@ -104,7 +105,7 @@ std::optional<Vec3u> WFC::select_cell(){
         return {};
     }else{
         m_status = AbstractWFC::RUNNING_STATUS;
-        return out[m_rng.next_int() % out.size()];
+        return m_select_candidates[m_rng.next_int() % m_select_candidates.size()];
     }
 }
 
@@ -139,25 +140,29 @@ void WFC::collapse_cell(const Vec3u& coords, int boost_bit, double boost_factor)
 
 
 bool WFC::update_cell_state(CellState& cell, const TileConstraints& constraints, const CellState& neighbor) {
-    auto tmp = cell;
-    CellState new_cell(cell.size());
-    new_cell.reset();
+    // m_scratch is reused across calls (sized once in init()) instead of
+    // allocating a fresh bitset every time; a change is detected by
+    // comparing set-bit counts before/after instead of copying cell into a
+    // temporary, since `cell &= ...` can only ever clear bits, never set
+    // them, so the count can only decrease.
+    m_scratch.reset();
     for (std::size_t i = 0; i < neighbor.size(); i++) {
         if (neighbor[i]) {
-            new_cell |= constraints[i];
+            m_scratch |= constraints[i];
         }
     }
-    cell &= new_cell;
-    return tmp != cell;
+    auto before = cell.count();
+    cell &= m_scratch;
+    return cell.count() != before;
 }
 
 
-void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir, std::queue<Vec3i>& queue) {
+void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir) {
     auto[f_x, f_y, f_z] = from;
     auto[t_x, t_y, t_z] = to;
     Vec3u dim{
-        static_cast<unsigned int>(m_wave->get_width()), 
-        static_cast<unsigned int>(m_wave->get_height()), 
+        static_cast<unsigned int>(m_wave->get_width()),
+        static_cast<unsigned int>(m_wave->get_height()),
         static_cast<unsigned int>(m_wave->get_depth())
     };
     if(m_periodic){
@@ -169,12 +174,12 @@ void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir
         if(static_cast<Vec3i>(wrapped_to) == from) return;
 
         if(update_cell_state(m_wave->get_wrapped(t_x, t_y, t_z), constraints.get(dir), m_wave->get_wrapped(f_x, f_y, f_z))){
-            queue.push(static_cast<Vec3i>(wrapped_to));
+            m_propagate_queue.push(static_cast<Vec3i>(wrapped_to));
             m_entropy.invalidate_cell(wrapped_to);
         }
     }else if(m_wave->valid_coords(t_x, t_y, t_z)){
         if(update_cell_state(m_wave->get(t_x, t_y, t_z), constraints.get(dir), m_wave->get(f_x, f_y, f_z))){
-            queue.push(to);
+            m_propagate_queue.push(to);
             m_entropy.invalidate_cell(to.to_vec3u());
         }
     }
@@ -182,20 +187,22 @@ void WFC::propagate_direction(const Vec3i& from, const Vec3i& to, Directions dir
 
 
 void WFC::propagate_constraints(const Vec3u& coords){
-    std::queue<Vec3i> queue;
-    queue.push(static_cast<Vec3i>(coords));
+    // m_propagate_queue is reused across calls instead of a fresh
+    // std::queue every time; it's always left empty on entry, since the
+    // loop below only ever exits once it's fully drained.
+    m_propagate_queue.push(static_cast<Vec3i>(coords));
 
-    while(!queue.empty()){
-        auto current = queue.front();
+    while(!m_propagate_queue.empty()){
+        auto current = m_propagate_queue.front();
 
-        propagate_direction(current, current + Vec3Constants::UP, Directions::UP, queue);
-        propagate_direction(current, current + Vec3Constants::DOWN, Directions::DOWN, queue);
-        propagate_direction(current, current + Vec3Constants::LEFT, Directions::LEFT, queue);
-        propagate_direction(current, current + Vec3Constants::RIGHT, Directions::RIGHT, queue);
-        propagate_direction(current, current + Vec3Constants::BACK, Directions::BACK, queue);
-        propagate_direction(current, current + Vec3Constants::FRONT, Directions::FRONT, queue);
+        propagate_direction(current, current + Vec3Constants::UP, Directions::UP);
+        propagate_direction(current, current + Vec3Constants::DOWN, Directions::DOWN);
+        propagate_direction(current, current + Vec3Constants::LEFT, Directions::LEFT);
+        propagate_direction(current, current + Vec3Constants::RIGHT, Directions::RIGHT);
+        propagate_direction(current, current + Vec3Constants::BACK, Directions::BACK);
+        propagate_direction(current, current + Vec3Constants::FRONT, Directions::FRONT);
 
-        queue.pop();
+        m_propagate_queue.pop();
     }
 }
 
